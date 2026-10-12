@@ -22,6 +22,12 @@ Dati/
   TeamB/   progetti/   backup/   config.json
 ```
 
+**La cartella del team è quella con i permessi**, e il suo nome è il nome del team (libero: `TeamA`, `Energia`, `progetti_TeamA`…). Dentro ci sono i file dei progetti, uno per progetto, in una sottocartella `progetti` oppure direttamente nella cartella del team: l'app riconosce entrambe le forme. `backup` e `config.json` stanno nella cartella del team, accanto. I permessi vanno quindi messi sulla cartella del team, non su `progetti`.
+
+Quello che non funziona è mettere i file in una sottocartella con un altro nome (per esempio `Dati/TeamA/progetti2/`): l'app non la riconosce e lo dice con un avviso rosso, con il nome del team e della cartella. Per correggere basta spostare i file nella cartella del team o in `progetti`, poi **↻ Aggiorna**.
+
+Se prima la cartella `Dati` era di un team solo (`Dati/progetti`, `Dati/backup`, `Dati/config.json`) e poi l'hai divisa in più cartelle, i file rimasti nella radice (tipicamente `config.json`) non appartengono a nessun team e non vengono letti: l'app li segnala con lo stesso avviso rosso. Sposta `config.json` nella cartella del team a cui serve (ogni team ha le sue impostazioni); la vecchia cartella `backup` della radice si può tenere come archivio, l'app la ignora.
+
 **Il proprietario del sito, una volta per ogni team:**
 
 1. Crea la cartella `Dati/<Team>` nella libreria (il nome della cartella è il nome del team).
@@ -62,7 +68,7 @@ Dati/
 
 Nella cartella dei dati, `backup/<data>/` contiene la versione di **inizio giornata** di ogni progetto modificato quel giorno. I progetti eliminati lasciano `<CODICE>.eliminato.json`.
 
-Per ripristinare un progetto: copia il file dal backup in `progetti/` con il nome `<CODICE>.json` (senza suffissi), poi apri il progetto nell'app e salvalo una volta, così la revisione sale e i colleghi che lo avevano aperto vedranno il conflitto invece di sovrascriverlo senza accorgersene.
+Per ripristinare un progetto: copia il file dal backup nella cartella dei progetti del team (`progetti/`, o la cartella del team stessa se i file stanno lì) con il nome `<CODICE>.json` (senza suffissi), poi apri il progetto nell'app e salvalo una volta, così la revisione sale e i colleghi che lo avevano aperto vedranno il conflitto invece di sovrascriverlo senza accorgersene.
 
 ## Passare dalla vecchia app
 

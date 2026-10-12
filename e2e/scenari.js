@@ -566,5 +566,65 @@ module.exports = {
     t.verifica((await b.valuta("document.getElementById('contenuto').innerText")).includes('Energia 0,40'), 'l\'analisi FTE usa il valore di ogni team');
     await b.schermata('22-fte-team', true);
     t.nessunErrore(b, /favicon/);
+  },
+
+  // ------------------------------------------- cartelle dei team con i file direttamente dentro
+  // Chi crea le cartelle a mano può mettere i file dei progetti nella cartella del team senza la
+  // sottocartella «progetti», oppure sbagliare il nome di quella sottocartella: i primi si leggono,
+  // i secondi devono essere segnalati, non lasciare un team vuoto senza spiegazioni.
+  async cartelleLibere(t) {
+    const base = await t.http();
+    const { b, a } = await t.apri(base + '?opfs');
+    const o = aiutiOpfs(b);
+    const Modello = require('../src/domain/modello.js');
+    const doc = (p) => ({ schemaVersion: 1, rev: 1, progetto: Modello.creaProgetto(p) });
+    const prog = (codice, fase) => ({ codice, applicativo: 'APP', projectManager: 'Rossi', fase: fase || 'Sviluppo', inizio: '2026-01-10', descrizione: codice, ordini: [{ riferimento: 'Ordine ' + codice, importo: 1000, offerta: 'SI', vpu: 'NO' }] });
+
+    await o.pronta();
+    await o.scrivi(['progetti_Alfa', 'EVO-1.json'], doc(prog('EVO-1')));
+    await o.scrivi(['progetti_Alfa', 'EVO-2.json'], doc(prog('EVO-2', 'Collaudo')));
+    await o.scrivi(['progetti_Beta', 'EVO-3.json'], doc(prog('EVO-3')));
+    await o.scrivi(['Gamma', 'progetti', 'EVO-4.json'], doc(prog('EVO-4')));
+    await o.scrivi(['Delta', 'progetti2', 'EVO-5.json'], doc(prog('EVO-5'))); // nome della sottocartella sbagliato
+    await o.scrivi(['config.json'], { schemaVersion: 1, fteProgetto: 0.3 }); // resto di quando la cartella era di un team solo
+    await o.creaCartella(['backup']);
+    await b.naviga(base + '?opfs');
+    await o.pronta();
+    await b.attendi('MP.ui.stato.squadre.length===4', 6000);
+
+    t.verifica(JSON.stringify(await a.stato('S.squadre.map(s=>s.nome)')) === JSON.stringify(['Delta', 'Gamma', 'progetti_Alfa', 'progetti_Beta']),
+      'ogni cartella è un team, comunque sia organizzata');
+    t.verifica(JSON.stringify(await a.stato('S.voci.map(v=>v.progetto.codice).sort()')) === JSON.stringify(['EVO-1', 'EVO-2', 'EVO-3', 'EVO-4']),
+      'si leggono sia i file direttamente nella cartella del team sia quelli in progetti/');
+    const banner = await b.valuta("document.getElementById('banner').innerText");
+    t.verifica(banner.includes('Delta/progetti2') && banner.includes('sottocartella non riconosciuta'),
+      'la sottocartella dal nome sbagliato è segnalata con il nome del team, non ignorata in silenzio');
+    t.verifica(banner.includes('config.json (file fuori dalle cartelle dei team'), 'il config.json rimasto nella radice è segnalato, non ignorato in silenzio');
+    await a.clic('↻ Aggiorna');
+    await b.sleep(300);
+    t.verifica(await a.stato('S.squadre.length') === 4, 'la cartella backup della radice non diventa un team nemmeno dopo «Aggiorna»');
+    await b.schermata('23-cartelle-libere', true);
+
+    // Si salva dove i file già stanno: nessuna cartella progetti/ creata a sorpresa.
+    await b.valuta("(()=>{MP.ui.apriModulo('EVO-3');return true})()");
+    await a.dialoghi(1);
+    await a.campo('Note', 'modificato');
+    await a.clic('Salva progetto');
+    await a.dialoghi(0);
+    await b.sleep(200);
+    t.verifica((await o.leggiJson(['progetti_Beta', 'EVO-3.json'])).rev === 2, 'la modifica riscrive il file nella cartella del team');
+    const inBeta = await o.elenca(['progetti_Beta']);
+    t.verifica(!inBeta.includes('progetti') && inBeta.includes('backup'), 'nessuna sottocartella progetti/ creata, il backup sta accanto ai file');
+
+    // Un progetto nuovo in un team organizzato così finisce nella stessa cartella.
+    await a.clic('+ Nuovo progetto');
+    await a.dialoghi(1);
+    await a.campo('Team', 'progetti_Alfa');
+    await a.campo('Codice *', 'EVO-9');
+    await a.clic('Salva progetto');
+    await a.dialoghi(0);
+    await b.sleep(200);
+    t.verifica((await o.elenca(['progetti_Alfa'])).includes('EVO-9.json'), 'un progetto nuovo va nella cartella del team, accanto agli altri');
+    t.nessunErrore(b, /favicon/);
   }
 };

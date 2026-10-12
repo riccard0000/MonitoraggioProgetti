@@ -203,6 +203,94 @@ test('cartella: risolvere una copia già sparita non è un errore; una scelta sb
   await assert.rejects(a.risolviCopia('x.json', 'boh'), /Scelta non valida/);
 });
 
+// ------------------------------------------------------------ layout piatto
+
+// I file dei progetti direttamente nella cartella del team, senza la sottocartella `progetti`.
+const fileProgetto = (codice, rev, note) => JSON.stringify({ schemaVersion: 1, rev: rev || 1, progetto: progetto(codice, { note: note || '' }) });
+
+test('layout piatto: i file direttamente nella cartella si leggono e la configurazione non è un progetto', async () => {
+  const radice = creaDir();
+  await scriviPercorso(radice, ['EVO-1.json'], fileProgetto('EVO-1'));
+  await scriviPercorso(radice, ['EVO-2.json'], fileProgetto('EVO-2'));
+  await scriviPercorso(radice, ['config.json'], JSON.stringify({ schemaVersion: 1, fteProgetto: 0.3, destinatariVpu: [] }));
+  const a = await apri(radice);
+
+  assert.equal(a.layout, 'piatto');
+  assert.equal(a.nuova, false);
+  const r = await a.elenca();
+  assert.deepEqual(r.progetti.map((x) => x.progetto.codice), ['EVO-1', 'EVO-2']);
+  assert.deepEqual(r.errori, [], 'config.json non viene scambiato per un progetto illeggibile');
+  assert.equal((await a.leggiConfigurazione()).fteProgetto, 0.3);
+});
+
+test('layout piatto: si salva nella stessa cartella, senza creare progetti/, con il backup accanto', async () => {
+  const radice = creaDir();
+  await scriviPercorso(radice, ['EVO-1.json'], fileProgetto('EVO-1', 1, 'prima'));
+  const a = await apri(radice);
+
+  await a.salva(progetto('EVO-3'));
+  await a.salva(progetto('EVO-1', { note: 'dopo' }), { revAtteso: 1 });
+
+  assert.deepEqual(await elencoPercorso(radice, []), ['EVO-1.json', 'EVO-3.json', 'backup'], 'nessuna cartella progetti');
+  assert.equal(JSON.parse(await leggiPercorso(radice, ['EVO-1.json'])).rev, 2);
+  assert.equal(JSON.parse(await leggiPercorso(radice, ['backup', OGGI, 'EVO-1.json'])).progetto.note, 'prima');
+  await a.elimina('EVO-3', 1);
+  assert.deepEqual((await a.elenca()).progetti.map((x) => x.progetto.codice), ['EVO-1']);
+});
+
+test('layout piatto: un progetto con codice «config» non sovrascrive le impostazioni', async () => {
+  const radice = creaDir();
+  await scriviPercorso(radice, ['EVO-1.json'], fileProgetto('EVO-1'));
+  const a = await apri(radice);
+  await a.salvaConfigurazione({ fteProgetto: 0.45 });
+
+  await assert.rejects(a.salva(progetto('config')), /non si può usare in questa cartella/);
+  await assert.rejects(a.salva(progetto('CONFIG')), /non si può usare in questa cartella/);
+  assert.equal((await a.leggiConfigurazione()).fteProgetto, 0.45);
+});
+
+test('layout piatto: una cartella vuota resta con progetti/, e se esiste progetti/ ha la precedenza', async () => {
+  assert.equal((await apri(creaDir())).layout, 'progetti');
+
+  const radice = creaDir();
+  await scriviPercorso(radice, ['progetti', 'A-1.json'], fileProgetto('A-1'));
+  const a = await apri(radice);
+  assert.equal(a.layout, 'progetti');
+  assert.deepEqual((await a.elenca()).progetti.map((x) => x.progetto.codice), ['A-1']);
+});
+
+test('segnala i file .json messi accanto a progetti/ invece che dentro', async () => {
+  const radice = creaDir();
+  await scriviPercorso(radice, ['progetti', 'A-1.json'], fileProgetto('A-1'));
+  await scriviPercorso(radice, ['fuori.json'], fileProgetto('B-1'));
+  await scriviPercorso(radice, ['config.json'], JSON.stringify({ schemaVersion: 1 }));
+  const r = await (await apri(radice)).elenca();
+
+  assert.deepEqual(r.progetti.map((x) => x.progetto.codice), ['A-1']);
+  assert.equal(r.errori.length, 1, 'config.json non conta');
+  assert.equal(r.errori[0].file, 'fuori.json');
+  assert.match(r.errori[0].messaggio, /fuori dalla cartella «progetti»/);
+});
+
+test('segnala le sottocartelle non riconosciute di una cartella senza progetti', async () => {
+  const radice = creaDir();
+  await radice.getDirectoryHandle('progetti_vecchi', { create: true });
+  await radice.getDirectoryHandle('backup', { create: true });
+  await radice.getDirectoryHandle('_privata', { create: true });
+  const r = await (await apri(radice)).elenca();
+
+  assert.deepEqual(r.progetti, []);
+  assert.deepEqual(r.errori.map((e) => e.file), ['progetti_vecchi'], 'backup e cartelle che iniziano per _ non contano');
+  assert.match(r.errori[0].messaggio, /sottocartella non riconosciuta/);
+});
+
+test('dopo il primo salvataggio la cartella progetti/ creata non viene scambiata per una sottocartella estranea', async () => {
+  const radice = creaDir();
+  const a = await apri(radice);
+  await a.salva(progetto('A-1'));
+  assert.deepEqual((await a.elenca()).errori, []);
+});
+
 // -------------------------------------------------------------- prestazioni
 
 test('cartella: carica molti progetti, anche con poca concorrenza', async () => {

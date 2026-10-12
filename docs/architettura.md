@@ -36,8 +36,12 @@ Dati/
 ```
 
 - Se la cartella scelta contiene `progetti/` (o è vuota) è **un team singolo**, come prima: chi apre direttamente la cartella del proprio team non vede differenze.
-- Altrimenti **ogni sottocartella è un team**, anche vuota (le cartelle che iniziano per `.` o `_` si saltano). Un team nuovo, creato dal proprietario del sito con i suoi permessi, compare con «Aggiorna».
-- `backup/` e `config.json` stanno **dentro ogni team**: fuori dai team non c'è nessun dato di progetto che possa far trapelare altri team.
+- Se non ha `progetti/` ma contiene direttamente file `.json` di progetto (e al massimo `backup/`) è ancora **un team singolo**, con i file direttamente dentro (layout «piatto»).
+- Altrimenti **ogni sottocartella è un team**, anche vuota (le cartelle che iniziano per `.` o `_` e `backup` si saltano). Un team nuovo, creato dal proprietario del sito con i suoi permessi, compare con «Aggiorna». Il tipo di organizzazione si decide **per ogni team**: uno può avere `progetti/` e un altro i file direttamente dentro.
+- Il team è la **cartella con i permessi**; dentro i file dei progetti stanno in `progetti/` oppure direttamente nella cartella. Se un team ha `progetti/` vale quella; altrimenti, se ha file `.json` di progetto, valgono quelli; se è vuoto, la prima scrittura crea `progetti/`. In entrambi i casi `backup/` e `config.json` stanno nella cartella del team, accanto.
+- Nel layout piatto `config.json` non è un progetto e il codice `config` è riservato; i file si riscrivono dove stanno, senza creare `progetti/` a sorpresa.
+- **Contenuto non riconosciuto = avviso, mai silenzio.** Una sottocartella dal nome diverso in un team senza progetti (per esempio `progetti2/`) e i file `.json` accanto a `progetti/` invece che dentro finiscono nell'avviso rosso «elementi non leggibili», con il nome del team. Prima un team con la sottocartella rinominata risultava semplicemente vuoto.
+- `backup/` e `config.json` stanno **dentro ogni team**: fuori dai team non c'è nessun dato di progetto che possa far trapelare altri team. In un archivio a più team la `backup/` della radice non è un team (né al primo rilevamento né dopo «Aggiorna») e i `.json` sciolti nella radice, come il vecchio `config.json`, sono segnalati e non letti.
 - Il team è il **nome della cartella**, non si salva nei file. L'app **non crea mai cartelle di team** (erediterebbero i permessi sbagliati); alla prima scrittura in un team vuoto chiede conferma di creare `progetti/` al suo interno.
 
 **Sola lettura**, in due livelli:

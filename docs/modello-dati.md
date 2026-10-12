@@ -44,7 +44,7 @@ Progetto (Codice univoco) ──< Ordine      0..N, di norma 1
 
 ## Team
 
-Un progetto appartiene a **un solo team**; il team è il **nome della cartella** in cui sta il file (`Dati/<Team>/progetti/...`) e non fa parte dei dati del progetto: non si salva nel file, quindi non può divergere se la cartella viene rinominata o spostata. I team non condividono progetti e un progetto non si sposta da un team all'altro. La riservatezza tra team la fanno i permessi delle cartelle in SharePoint; l'app non la impone (vedi [architettura.md](architettura.md)).
+Un progetto appartiene a **un solo team**; il team è il **nome della cartella** in cui sta il file (`Dati/<Team>/progetti/...` oppure `Dati/<Team>/...`) e non fa parte dei dati del progetto: non si salva nel file, quindi non può divergere se la cartella viene rinominata o spostata. I team non condividono progetti e un progetto non si sposta da un team all'altro. La riservatezza tra team la fanno i permessi delle cartelle in SharePoint; l'app non la impone (vedi [architettura.md](architettura.md)).
 
 - **Codice:** univoco dentro il team (lo garantisce il nome del file). Che sia univoco tra team lo assicura il processo a monte; se capitasse, il responsabile vede un avviso.
 - **Configurazione** (valore FTE, destinatari VPU) per team, nel `config.json` del team.

@@ -115,6 +115,14 @@
     return { rev: dati.rev, progetto: Modello.creaProgetto(dati.progetto) };
   }
 
+  // Ci sono file di progetto (.json, esclusa la configurazione) direttamente in questa cartella?
+  async function contieneProgetti(dir) {
+    for await (const [nome, handle] of dir.entries()) {
+      if (handle.kind === 'file' && /\.json$/i.test(nome) && nome.toLowerCase() !== FILE_CONFIG) return true;
+    }
+    return false;
+  }
+
   const serializza = (progetto, rev) => JSON.stringify({ schemaVersion: SCHEMA_VERSION, rev, progetto }, null, 2);
 
   // `radiceHandle`: FileSystemDirectoryHandle scelto dall'utente.
@@ -124,15 +132,39 @@
     const oggi = opt.oggi || oggiLocale;
     const concorrenza = Math.max(1, opt.concorrenza || 8);
 
+    // I file dei progetti stanno in `progetti/`; se quella sottocartella non c'e' ma ci sono file di
+    // progetto direttamente nella cartella (layout piatto), si leggono e si scrivono li'.
     const esistente = await sottocartella(radiceHandle, DIR_PROGETTI, false);
+    const piatto = !esistente && (await contieneProgetti(radiceHandle));
     const adapter = {
       tipo: 'cartella',
       nome: radiceHandle.name || 'cartella',
+      layout: piatto ? 'piatto' : 'progetti',
       // true se la cartella non contiene ancora progetti: sara' inizializzata al primo salvataggio.
-      nuova: !esistente
+      nuova: !esistente && !piatto
     };
 
-    const dirProgetti = (crea) => sottocartella(radiceHandle, DIR_PROGETTI, crea);
+    const dirProgetti = (crea) => (piatto ? Promise.resolve(radiceHandle) : sottocartella(radiceHandle, DIR_PROGETTI, crea));
+
+    // Cose che l'app non riconosce e che probabilmente sono progetti messi nel posto sbagliato:
+    // le segnala, cosi' non resta solo una cartella che sembra vuota.
+    async function anomalie(dir) {
+      const out = [];
+      if (piatto) return out;
+      for await (const [nome, handle] of radiceHandle.entries()) {
+        if (dir) {
+          if (handle.kind === 'file' && /\.json$/i.test(nome) && nome.toLowerCase() !== FILE_CONFIG) {
+            out.push({ file: nome, messaggio: 'file fuori dalla cartella «' + DIR_PROGETTI + '»: non viene letto' });
+          }
+        } else if (handle.kind === 'directory' && !/^[._]/.test(nome) && nome.toLowerCase() !== DIR_BACKUP) {
+          out.push({
+            file: nome,
+            messaggio: 'sottocartella non riconosciuta: i file dei progetti vanno direttamente nella cartella del team o in «' + DIR_PROGETTI + '»'
+          });
+        }
+      }
+      return out;
+    }
 
     // Stato attuale di un progetto sul disco: { rev, progetto, testo } oppure null.
     async function leggiAttuale(dir, nome) {
@@ -156,11 +188,14 @@
     adapter.elenca = async function () {
       const risultato = { progetti: [], copieConflitto: [], errori: [] };
       const dir = await dirProgetti(false);
+      risultato.errori.push(...(await anomalie(dir)));
       if (!dir) return risultato;
 
       const file = [];
       for await (const [nome, handle] of dir.entries()) {
-        if (handle.kind === 'file' && nome.toLowerCase().endsWith('.json')) file.push(nome);
+        if (handle.kind !== 'file' || !nome.toLowerCase().endsWith('.json')) continue;
+        if (piatto && nome.toLowerCase() === FILE_CONFIG) continue; // le impostazioni non sono un progetto
+        file.push(nome);
       }
 
       await inParallelo(file, concorrenza, async (nome) => {
@@ -195,6 +230,11 @@
       const chiaveVecchia = o.codicePrecedente ? Codice.chiave(o.codicePrecedente) : chiaveNuova;
       const nomeNuovo = nomeFile(progetto.codice);
       const nomeVecchio = chiaveVecchia === chiaveNuova ? nomeNuovo : nomeFile(o.codicePrecedente);
+      // Nel layout piatto le impostazioni stanno accanto ai progetti: un progetto «CONFIG»
+      // (Windows non distingue le maiuscole) le sovrascriverebbe.
+      if (piatto && nomeNuovo.toLowerCase() === FILE_CONFIG) {
+        throw new Error('Il codice «' + progetto.codice + '» non si può usare in questa cartella: il file coinciderebbe con le impostazioni');
+      }
 
       const dir = await dirProgetti(true);
       const attualeNuovo = await leggiAttuale(dir, nomeNuovo);

@@ -65,6 +65,86 @@ test('elenca: unisce i progetti dei team indicando il team, in ordine di codice'
   assert.deepEqual(r.squadre.map((s) => s.ok), [true, true]);
 });
 
+// ---------------------------------------- cartelle dei team con i file direttamente dentro
+
+const fileProgetto = (codice) => JSON.stringify({ schemaVersion: 1, rev: 1, progetto: progetto(codice) });
+
+test('layout: due cartelle con i file dei progetti direttamente dentro sono due team', async () => {
+  const radice = creaDir({ nome: 'Dati' });
+  await scriviPercorso(radice, ['progetti_TeamA', 'EVO-1.json'], fileProgetto('EVO-1'));
+  await scriviPercorso(radice, ['progetti_TeamB', 'EVO-2.json'], fileProgetto('EVO-2'));
+  await scriviPercorso(radice, ['progetti_TeamB', 'EVO-3.json'], fileProgetto('EVO-3'));
+  const a = await apri(radice);
+
+  assert.equal(a.multi, true);
+  const r = await a.elenca();
+  assert.deepEqual(codici(r), ['progetti_TeamA/EVO-1', 'progetti_TeamB/EVO-2', 'progetti_TeamB/EVO-3']);
+  assert.deepEqual(r.errori, []);
+
+  // Si scrive dove stanno già i file, senza creare progetti/.
+  await a.salva(progetto('EVO-4'), { team: 'progetti_TeamA' });
+  assert.deepEqual(await elencoPercorso(radice, ['progetti_TeamA']), ['EVO-1.json', 'EVO-4.json']);
+});
+
+test('layout: un team con progetti/ e uno con i file direttamente dentro possono convivere', async () => {
+  const radice = creaDir();
+  await scriviPercorso(radice, ['TeamA', 'progetti', 'A-1.json'], fileProgetto('A-1'));
+  await scriviPercorso(radice, ['TeamB', 'B-1.json'], fileProgetto('B-1'));
+  const r = await (await apri(radice)).elenca();
+  assert.deepEqual(codici(r), ['TeamA/A-1', 'TeamB/B-1']);
+});
+
+test('layout: una cartella con file di progetto e la sola sottocartella backup è un team singolo', async () => {
+  const radice = creaDir({ nome: 'Dati' });
+  await scriviPercorso(radice, ['EVO-1.json'], fileProgetto('EVO-1'));
+  await radice.getDirectoryHandle('backup', { create: true });
+  const a = await apri(radice);
+
+  assert.equal(a.multi, false);
+  assert.deepEqual(codici(await a.elenca()), ['Dati/EVO-1']);
+});
+
+test('layout: un file .json sciolto nella radice di un archivio a più team non lo trasforma in un team solo', async () => {
+  const radice = await radiceCon('TeamA', 'TeamB');
+  await scriviPercorso(radice, ['nota.json'], '{}');
+  const a = await apri(radice);
+  assert.equal(a.multi, true);
+  assert.deepEqual(a.squadre().map((s) => s.nome), ['TeamA', 'TeamB']);
+  assert.deepEqual((await a.elenca()).errori.map((e) => e.file), ['nota.json'], 'e il file sciolto è segnalato');
+});
+
+test('layout: rinominando progetti/ in due cartelle, il vecchio config.json e backup/ della radice non diventano team né spariscono in silenzio', async () => {
+  // Il caso di chi aveva Dati/progetti + Dati/backup + Dati/config.json e ha diviso i dati in due cartelle.
+  const radice = creaDir({ nome: 'Dati' });
+  await scriviPercorso(radice, ['progetti_A', 'EVO-1.json'], fileProgetto('EVO-1'));
+  await scriviPercorso(radice, ['progetti_B', 'EVO-2.json'], fileProgetto('EVO-2'));
+  await scriviPercorso(radice, ['config.json'], JSON.stringify({ schemaVersion: 1, fteProgetto: 0.3 }));
+  await radice.getDirectoryHandle('backup', { create: true });
+  const a = await apri(radice);
+
+  assert.deepEqual(a.squadre().map((s) => s.nome), ['progetti_A', 'progetti_B'], 'backup non è un team');
+  const r = await a.elenca();
+  assert.deepEqual(codici(r), ['progetti_A/EVO-1', 'progetti_B/EVO-2']);
+  assert.equal(r.errori.length, 1, 'il config.json della radice è segnalato');
+  assert.equal(r.errori[0].file, 'config.json');
+  assert.match(r.errori[0].messaggio, /fuori dalle cartelle dei team/);
+  assert.equal(r.errori[0].team, undefined, 'non appartiene a nessun team');
+  assert.deepEqual(a.squadre().map((s) => s.nome), ['progetti_A', 'progetti_B'], 'nemmeno dopo l\'aggiornamento compare un team «backup»');
+});
+
+test('un team con i progetti in una sottocartella dal nome sbagliato è segnalato, non lasciato vuoto', async () => {
+  const radice = creaDir();
+  await scriviPercorso(radice, ['TeamA', 'progetti', 'A-1.json'], fileProgetto('A-1'));
+  await scriviPercorso(radice, ['TeamB', 'progetti2', 'B-1.json'], fileProgetto('B-1'));
+  const r = await (await apri(radice)).elenca();
+
+  assert.deepEqual(codici(r), ['TeamA/A-1']);
+  assert.equal(r.errori.length, 1);
+  assert.equal(r.errori[0].team, 'TeamB');
+  assert.equal(r.errori[0].file, 'progetti2');
+  assert.match(r.errori[0].messaggio, /sottocartella non riconosciuta/);
+});
+
 // -------------------------------------------------------------- instradamento
 
 test('salva: scrive solo nella cartella del team indicato', async () => {

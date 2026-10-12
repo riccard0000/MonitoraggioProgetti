@@ -59,8 +59,10 @@
   // squadre: [{ nome, adapter, handle?, soloLettura?, errore? }]. `adapter` e' un adapter di
   // cartella singola (cartella.js o memoria.js); `handle` serve solo a controllare il permesso.
   // opzioni: { nome, consultazione, permesso: async (team) => boolean,
-  //            aggiorna: async ([{ nome, daRiprovare }]) => ({ aggiungi: [squadra], rimuovi: [nome] }) }
-  // `aggiorna` (facoltativa) e' chiamata a ogni `elenca()` per vedere se sono comparsi o spariti team.
+  //            aggiorna: async ([{ nome, daRiprovare }]) => ({ aggiungi: [squadra], rimuovi: [nome] }),
+  //            anomalieRadice: async () => [{ file, messaggio }] }
+  // `aggiorna` (facoltativa) e' chiamata a ogni `elenca()` per vedere se sono comparsi o spariti team;
+  // `anomalieRadice` (facoltativa) aggiunge agli errori il contenuto non riconosciuto fuori dai team.
   function creaArchivio(squadre, opzioni) {
     const opt = opzioni || {};
     let consultazione = !!opt.consultazione;
@@ -153,6 +155,13 @@
       async elenca() {
         const out = { progetti: [], copieConflitto: [], errori: [], squadre: [] };
         await aggiornaSquadre();
+        if (opt.anomalieRadice) {
+          try {
+            out.errori.push(...(await opt.anomalieRadice()));
+          } catch (e) {
+            // La radice non si legge: gli avvisi dei team valgono comunque.
+          }
+        }
         await Promise.all(elenco.map(async (s) => {
           if (!s.adapter) {
             out.errori.push({ file: s.nome, team: s.nome, messaggio: 'cartella del team non accessibile: ' + s.errore });
@@ -233,16 +242,33 @@
     const nomeRadice = radiceHandle.name || 'cartella';
     const conNome = Object.assign({}, opt, { nome: nomeRadice });
 
-    // Le sottocartelle che possono essere team (si saltano quelle che iniziano con . o _).
+    // Le sottocartelle che possono essere team (si saltano `backup` e quelle che iniziano con . o _).
     async function cartelleDeiTeam() {
       const nomi = [];
       for await (const [nome, handle] of radiceHandle.entries()) {
-        if (handle.kind === 'directory' && !/^[._]/.test(nome)) nomi.push(nome);
+        if (handle.kind === 'directory' && !/^[._]/.test(nome) && nome.toLowerCase() !== 'backup') nomi.push(nome);
       }
       return nomi;
     }
 
-    const sottocartelle = (await esisteSottocartella(radiceHandle, 'progetti')) ? [] : await cartelleDeiTeam();
+    // In un archivio a piu' team i file sciolti nella radice (per esempio il config.json di quando
+    // la cartella era di un team solo) non appartengono a nessun team: non si leggono, quindi si dice.
+    async function anomalieRadice() {
+      const out = [];
+      for await (const [nome, handle] of radiceHandle.entries()) {
+        if (handle.kind === 'file' && /\.json$/i.test(nome)) {
+          out.push({ file: nome, messaggio: 'file fuori dalle cartelle dei team: non viene letto (progetti e impostazioni stanno dentro la cartella di ogni team)' });
+        }
+      }
+      return out;
+    }
+
+    // Un team singolo ha `progetti/`, oppure non ha altre sottocartelle che `backup` (e allora i
+    // progetti stanno direttamente nella cartella, o non ci sono ancora). Altrimenti ogni
+    // sottocartella e' un team. Si decide dalle sottocartelle e non dai file: un .json sciolto
+    // nella cartella radice di un archivio a piu' team non deve farlo scambiare per un team solo.
+    const haProgetti = await esisteSottocartella(radiceHandle, 'progetti');
+    const sottocartelle = haProgetti ? [] : await cartelleDeiTeam();
 
     if (!sottocartelle.length) {
       const adapter = await Cartella.creaCartella(radiceHandle, opt);
@@ -273,7 +299,7 @@
         rimuovi: nomiNoti.filter((n) => !attuali.includes(n)).concat(daRiprovare)
       };
     };
-    return creaArchivio(squadre, Object.assign({}, conNome, { aggiorna }));
+    return creaArchivio(squadre, Object.assign({}, conNome, { aggiorna, anomalieRadice }));
   }
 
   const api = { creaArchivio, apriArchivio };
