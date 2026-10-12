@@ -44,7 +44,10 @@
       const giorniAttivi = Data.giorniTra(da, a) + 1;
       if (giorniAttivi <= 0) continue;
 
-      const quota = cfg.fteProgetto * giorniAttivi / giorniMese;
+      // `fteProgetto` puo' essere un numero oppure una funzione (progetto) => numero, per avere
+      // un valore diverso per ogni team.
+      const peso = typeof cfg.fteProgetto === 'function' ? cfg.fteProgetto(p) : cfg.fteProgetto;
+      const quota = peso * giorniAttivi / giorniMese;
       dettaglio.push({ codice: p.codice, giorniAttivi, fte: quota });
       totale += quota;
     }

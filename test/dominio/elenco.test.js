@@ -98,3 +98,30 @@ test('conteggi e totali per fase', () => {
 
   assert.deepEqual(Elenco.totali(a), { progetti: 3, ordini: 3, attivita: 1, costo: 11500 });
 });
+
+// ---------------------------------------------------------------------------- team
+
+const TEAM = { 'EVO-26-10': 'Team Portali', 'EVO-26-2': 'Team Energia', 'EVO-26-3': 'Team Energia' };
+const ctx = { team: (p) => TEAM[p.codice] };
+
+test('filtra: per team, anche insieme a testo e fasi', () => {
+  const a = archivio();
+  assert.deepEqual(codici(Elenco.filtra(a, { team: 'Team Energia' }, ctx)), ['EVO-26-2', 'EVO-26-3']);
+  assert.deepEqual(codici(Elenco.filtra(a, { team: 'Team Energia', testo: 'neri' }, ctx)), ['EVO-26-3']);
+  assert.deepEqual(codici(Elenco.filtra(a, { team: 'Team Energia', fasi: ['Esercizio'] }, ctx)), ['EVO-26-2']);
+  assert.deepEqual(codici(Elenco.filtra(a, { team: '' }, ctx)), ['EVO-26-10', 'EVO-26-2', 'EVO-26-3'], 'nessun team = tutti');
+});
+
+test('filtra: senza sapere a quale team appartengono i progetti, un filtro per team non trova nulla', () => {
+  assert.deepEqual(Elenco.filtra(archivio(), { team: 'Team Energia' }), []);
+});
+
+test('filtra: la ricerca trova anche il nome del team', () => {
+  assert.deepEqual(codici(Elenco.filtra(archivio(), { testo: 'portali' }, ctx)), ['EVO-26-10']);
+});
+
+test('ordina: per team con una chiave aggiuntiva, restando stabile dentro il team', () => {
+  const a = archivio();
+  assert.deepEqual(codici(Elenco.ordina(a, 'team', 1, { team: ctx.team })), ['EVO-26-2', 'EVO-26-3', 'EVO-26-10']);
+  assert.deepEqual(codici(Elenco.ordina(a, 'team', -1, { team: ctx.team })), ['EVO-26-10', 'EVO-26-2', 'EVO-26-3']);
+});

@@ -95,6 +95,23 @@ test('import esteso: lo stesso ordine con importi diversi è un conflitto', () =
   assert.deepEqual(r.conflitti, [{ codice: 'X-1', campo: 'ordine O1: importo', valori: ['1000', '1500'], tenuto: '1000' }]);
 });
 
+test('esporta: la colonna Team è facoltativa, informativa e ignorata dall\'import', () => {
+  const originali = progettiDiProva();
+  assert.ok(!Esporta.esporta(originali).split('\r\n')[0].includes('Team'), 'senza opzione non c\'è');
+
+  const team = (p) => (p.codice === 'EVO-26-010' ? 'Team Energia' : 'Team Portali');
+  const csv = Esporta.esporta(originali, { team });
+  const righe = Csv.leggi(csv);
+  const colonna = righe[0].indexOf('Team');
+  assert.equal(colonna, Esporta.INTESTAZIONI.length, 'la colonna è l\'ultima');
+  assert.equal(righe[1][colonna], 'Team Energia');
+  assert.equal(righe[righe.length - 1][colonna], 'Team Portali');
+
+  const r = Import.importa(csv);
+  assert.deepEqual(r.progetti, originali);
+  assert.deepEqual(r.avvisi, []);
+});
+
 test('import: il formato è riconosciuto dalle intestazioni', () => {
   assert.equal(Import.importa(fixture('legacy-semplice.csv')).formato, 'piatto');
   assert.equal(Import.importa('Codice;Ordine Riferimento\nX;O1\n').formato, 'esteso');

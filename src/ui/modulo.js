@@ -42,13 +42,21 @@
     return m ? 'Attività ' + (Number(m[1]) + 1) + ': ' : '';
   }
 
-  async function apriModulo(codiceIniziale) {
+  // `team` serve solo per aprire il progetto giusto se due team avessero lo stesso codice.
+  async function apriModulo(codiceIniziale, teamIniziale) {
     const S = UI.stato;
-    const voce = codiceIniziale ? UI.voce(codiceIniziale) : null;
+    const voce = codiceIniziale ? UI.voce(codiceIniziale, teamIniziale) : null;
     if (codiceIniziale && !voce) {
       UI.toast('Progetto non trovato: potrebbe essere stato eliminato.', 'errore');
       return null;
     }
+    // Dove non si puo' scrivere non si apre il modulo (nemmeno da tastiera).
+    const scrivibili = UI.squadreScrivibili();
+    if (voce ? !UI.scrivibile(voce.team) : !scrivibili.length) {
+      UI.toast(S.consultazione ? 'In sola consultazione non si può modificare.' : 'Non hai il permesso di modificare qui.', 'avviso');
+      return null;
+    }
+    const multi = UI.multi();
     const partenza = voce ? JSON.parse(JSON.stringify(voce.progetto)) : Modello.creaProgetto({});
     let revAtteso = voce ? voce.rev : null;
     let codicePrecedente = voce ? voce.progetto.codice : null;
@@ -67,7 +75,16 @@
 
     const riepilogoErrori = h('div', { class: 'riepilogo-errori', role: 'alert', hidden: true });
 
+    // Il team lo si sceglie solo alla creazione (tra quelli in cui si puo' scrivere): spostare un
+    // progetto da un team all'altro non e' previsto.
+    const campoTeam = multi
+      ? generico('team', 'Team', voce
+        ? h('select', { disabled: true }, h('option', { value: voce.team, selected: true }, voce.team))
+        : selezione(scrivibili.map((s) => s.nome), (scrivibili.find((s) => s.nome === S.filtri.team) || scrivibili[0]).nome))
+      : null;
+
     const griglia = h('div', { class: 'griglia-campi' },
+      campoTeam,
       generico('codice', 'Codice *', h('input', { type: 'text', value: partenza.codice, autocomplete: 'off', required: true })),
       generico('applicativo', 'Applicativo', h('input', { type: 'text', value: partenza.applicativo, autocomplete: 'off' })),
       generico('projectManager', 'Project manager', h('input', { type: 'text', value: partenza.projectManager, autocomplete: 'off' })),
@@ -256,15 +273,19 @@
     }
 
     // ------------------------------------------------------------- salvataggio
+    // Team in cui si salva: quello del progetto esistente, oppure quello scelto nel modulo.
+    const teamDiSalvataggio = () => (voce ? voce.team : (multi ? campi.team.value : undefined));
+
     async function tentaSalvataggio(progetto) {
       try {
-        const esito = await S.adapter.salva(progetto, { revAtteso, codicePrecedente });
+        const esito = await S.adapter.salva(progetto, { revAtteso, codicePrecedente, team: teamDiSalvataggio() });
         UI.registraVoce(esito, codicePrecedente);
         UI.toast('Progetto ' + esito.progetto.codice + ' salvato', 'ok');
         UI.aggiorna();
         return true;
       } catch (e) {
         if (e && e.name === 'ConflittoDiVersione') return risolviConflitto(e, progetto);
+        if (UI.gestisciErroreScrittura(e)) return false; // il modulo resta aperto, con le modifiche
         UI.toast('Salvataggio non riuscito: ' + (e && e.message), 'errore');
         return false;
       }
@@ -318,11 +339,24 @@
           errori.push({ percorso: 'ordini[' + i + '].importo', messaggio: 'Importo non valido: usa cifre e la virgola per i decimali (es. 1.250,50)' });
         }
       });
-      if (progetto.codice && Modello.trovaDuplicato(progetto.codice, S.voci.map((v) => v.progetto), codicePrecedente)) {
+      // L'unicita' si controlla dentro il team (la cartella del team la fa rispettare comunque).
+      const delTeam = S.voci.filter((v) => v.team === teamDiSalvataggio() || !multi).map((v) => v.progetto);
+      if (progetto.codice && Modello.trovaDuplicato(progetto.codice, delTeam, codicePrecedente)) {
         errori.push({ percorso: 'codice', messaggio: 'Esiste già un progetto con il codice «' + progetto.codice + '»' });
       }
       mostraErrori(errori);
       if (errori.length) return false;
+
+      // Un team ancora vuoto: l'app non crea le cartelle dei team (le crea chi ha i permessi su
+      // SharePoint), ma dentro quella del team crea progetti/ e backup/: meglio chiederlo.
+      if (multi && !voce) {
+        const squadra = S.adapter.squadre().find((s) => s.nome === teamDiSalvataggio());
+        if (squadra && squadra.nuova) {
+          const ok = await UI.conferma('Il team «' + squadra.nome + '» non ha ancora progetti.\nCreo qui le cartelle progetti e backup?',
+            { titolo: 'Prima scrittura nel team', conferma: 'Crea e salva', annulla: 'Annulla' });
+          if (!ok) return false;
+        }
+      }
 
       for (const a of ambigui) {
         const ok = await UI.conferma('«' + a.testo + '» può significare mille o uno.\nL\'ho letto come ' + euro(a.valore) + '. È corretto?',
@@ -352,7 +386,7 @@
     const esito = await d.finita;
     if (esito === 'ricaricato') {
       await UI.ricarica();
-      if (UI.voce(daRiaprire)) return apriModulo(daRiaprire);
+      if (UI.voce(daRiaprire, teamDiSalvataggio())) return apriModulo(daRiaprire, teamDiSalvataggio());
       UI.toast('Il progetto non esiste più nell\'archivio.', 'avviso');
     }
     return esito;

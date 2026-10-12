@@ -20,8 +20,9 @@
     return h('div', { class: 'scheda-info' }, h('div', { class: 'titolo-scheda' }, titolo), contenuto);
   }
 
-  function inviaEmailVpu(progetto, ordine) {
-    const destinatari = (UI.stato.config && UI.stato.config.destinatariVpu) || [];
+  // I destinatari sono quelli del team del progetto.
+  function inviaEmailVpu(progetto, ordine, team) {
+    const destinatari = UI.config(team || UI.teamDi(progetto.codice)).destinatariVpu || [];
     if (!destinatari.length) {
       UI.toast('Nessun destinatario per le email VPU: aggiungilo in Impostazioni. Apro la bozza senza destinatari.', 'avviso');
     }
@@ -31,25 +32,28 @@
     link.remove();
   }
 
-  function pdfScheda(p) {
+  function pdfScheda(p, team) {
     try {
-      MP.reports.schedaProgetto(p).save(MP.reports.nomeFile(MP.reports.prefissi.scheda + '_' + p.codice));
+      MP.reports.schedaProgetto(p, { team: UI.multi() ? team : null }).save(MP.reports.nomeFile(MP.reports.prefissi.scheda + '_' + p.codice));
     } catch (e) {
       UI.toast('Impossibile creare il PDF: ' + e.message, 'errore');
     }
   }
 
-  function apriDettaglio(codice) {
-    const voce = UI.voce(codice);
+  function apriDettaglio(codice, team) {
+    const voce = UI.voce(codice, team);
     if (!voce) return null;
     const p = voce.progetto;
+    const puoModificare = UI.scrivibile(voce.team);
     const ordini = p.ordini || [];
     const attivita = (p.attivita || []).slice().sort((a, b) => ((a.inizio || '9999') < (b.inizio || '9999') ? -1 : 1));
     const url = urlSicuro(p.sito);
 
     const contenuto = h('div', {},
       h('div', { class: 'dettaglio-testa' },
-        h('div', { class: 'titolo' }, p.codice, badgeFase(p.fase)),
+        h('div', { class: 'titolo' }, p.codice, badgeFase(p.fase),
+          UI.multi() ? h('span', { class: 'etichetta etichetta-nd', title: 'Team' }, voce.team) : null,
+          puoModificare ? null : h('span', { class: 'etichetta etichetta-nd', title: 'Non si può modificare' }, '🔒 sola lettura')),
         h('div', { class: 'meta' },
           h('div', {}, 'Applicativo: ', h('strong', {}, p.applicativo || 'n/d')),
           h('div', {}, 'Project manager: ', h('strong', {}, p.projectManager || 'Non assegnato')))),
@@ -78,7 +82,7 @@
             h('td', { class: 'centro' }, badgeSiNo(o.offerta)),
             h('td', { class: 'centro' }, badgeSiNo(o.vpu)),
             h('td', { class: 'destra' }, o.vpu === 'NO'
-              ? h('button', { type: 'button', class: 'btn btn-secondario btn-piccolo', onclick: () => inviaEmailVpu(p, o) }, '📧 Richiedi VPU')
+              ? h('button', { type: 'button', class: 'btn btn-secondario btn-piccolo', onclick: () => inviaEmailVpu(p, o, voce.team) }, '📧 Richiedi VPU')
               : null)))))
         : h('p', { class: 'tenue' }, 'Nessun ordine presente.')),
 
@@ -98,11 +102,10 @@
       larghezza: 'min(900px, 97vw)',
       pulsanti: [
         { testo: 'Chiudi', valore: 'chiudi' },
-        { testo: 'PDF', classe: 'btn-scuro', azione: () => { pdfScheda(p); return false; } },
-        { testo: 'Modifica', classe: 'btn-primario', valore: 'modifica' }
-      ]
+        { testo: 'PDF', classe: 'btn-scuro', azione: () => { pdfScheda(p, voce.team); return false; } }
+      ].concat(puoModificare ? [{ testo: 'Modifica', classe: 'btn-primario', valore: 'modifica' }] : [])
     });
-    d.finita.then((esito) => { if (esito === 'modifica') UI.apriModulo(p.codice); });
+    d.finita.then((esito) => { if (esito === 'modifica') UI.apriModulo(p.codice, voce.team); });
     return d;
   }
 

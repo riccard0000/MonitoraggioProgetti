@@ -24,8 +24,11 @@
     return '"' + testo.replace(/"/g, '""') + '"';
   }
 
-  function esporta(progetti) {
-    const righe = [INTESTAZIONI.map(cella).join(';')];
+  // opzioni.team: funzione (progetto) => nome del team. Se c'e', si aggiunge in fondo la colonna
+  // «Team»: e' solo informativa, l'import la ignora (il team lo sceglie chi importa).
+  function esporta(progetti, opzioni) {
+    const teamDi = opzioni && opzioni.team;
+    const righe = [INTESTAZIONI.concat(teamDi ? ['Team'] : []).map(cella).join(';')];
 
     for (const p of progetti) {
       const ordini = p.ordini || [];
@@ -42,7 +45,7 @@
           o ? o.riferimento : '', o ? Importi.formatoEuro(o.importo) : '', o ? o.offerta : '', o ? o.vpu : '',
           a ? a.descrizione : '', a ? Data.formatoIT(a.inizio) : '', a ? Data.formatoIT(a.fine) : '',
           a ? a.stato : '', a ? a.note : ''
-        ].map(cella).join(';'));
+        ].concat(teamDi ? [teamDi(p)] : []).map(cella).join(';'));
       }
     }
     return righe.join('\r\n') + '\r\n';

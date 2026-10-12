@@ -23,9 +23,20 @@
   };
   const breve = (v) => (v === 'PARZIALE' ? 'Parz.' : v);
 
+  // Con piu' team, aggiunge la colonna Team dopo la prima e toglie larghezza alle altre per
+  // restare nella pagina. `team` e' una funzione (riga) => nome del team, oppure null.
+  function conTeam(colonne, team, tagli) {
+    if (!team) return colonne;
+    const out = colonne.map((c) => (tagli[c.titolo] ? Object.assign({}, c, { larghezza: c.larghezza - tagli[c.titolo] }) : c));
+    out.splice(1, 0, { titolo: 'Team', valore: (x) => team(x) || '-', larghezza: 22 });
+    return out;
+  }
+
   // --------------------------------------------------------------- scheda progetto
 
-  function schedaProgetto(p) {
+  // opzioni.team: nome del team del progetto (solo se ce ne sono piu' d'uno).
+  function schedaProgetto(p, opzioni) {
+    const team = opzioni && opzioni.team;
     const doc = K.nuovoDocumento('p');
     const { L } = K.misure(doc);
     let y = K.intestazione(doc, 'Dettaglio progetto');
@@ -59,7 +70,7 @@
     y = K.schedeKpi(doc, y, [
       { etichetta: 'Project manager', valore: p.projectManager || 'Non assegnato' },
       { etichetta: 'Promemoria', valore: p.promemoria || 'NO' }
-    ]);
+    ].concat(team ? [{ etichetta: 'Team', valore: team }] : []));
 
     y = K.titoloSezione(doc, y, 'Ordini (' + (p.ordini || []).length + ')');
     if ((p.ordini || []).length) {
@@ -97,7 +108,8 @@
   // ---------------------------------------------------------------------- riepilogo
 
   // progetti: gia' filtrati e ordinati come a schermo.
-  // opzioni: { filtri: { testo, fasi }, immagini: { fasi, costi } (data URL dei grafici) }
+  // opzioni: { filtri: { testo, fasi, team }, immagini: { fasi, costi } (data URL dei grafici),
+  //            team: (progetto) => nome del team (solo se ce ne sono piu' d'uno) }
   function riepilogo(progetti, opzioni) {
     const o = opzioni || {};
     const doc = K.nuovoDocumento('l');
@@ -106,7 +118,8 @@
 
     const f = o.filtri || {};
     y = K.blocco(doc, y, 'Filtri applicati',
-      'Ricerca: ' + (f.testo || 'nessuna') + '    |    Fasi: ' + (f.fasi && f.fasi.length ? f.fasi.join(', ') : 'tutte'));
+      'Ricerca: ' + (f.testo || 'nessuna') + '    |    Fasi: ' + (f.fasi && f.fasi.length ? f.fasi.join(', ') : 'tutte') +
+      (o.team ? '    |    Team: ' + (f.team || 'tutti') : ''));
 
     const tot = Elenco.totali(progetti);
     y = K.schedeKpi(doc, y, [
@@ -158,7 +171,7 @@
     doc.addPage();
     y = K.titoloSezione(doc, M + 2, 'Elenco progetti');
     const rigaVerde = (p) => (p.fase === 'Esercizio' ? C.verdeChiaro : null);
-    K.tabella(doc, y, [
+    const colonneElenco = [
       { titolo: 'Codice', valore: (p) => p.codice, larghezza: 22, cella: (d) => { d.cell.styles.fontStyle = 'bold'; } },
       { titolo: 'Applicativo', valore: (p) => p.applicativo || '-', larghezza: 26 },
       { titolo: 'Project manager', valore: (p) => p.projectManager || '-', larghezza: 22 },
@@ -171,11 +184,12 @@
       { titolo: 'Prom.', valore: (p) => p.promemoria, larghezza: 11, allinea: 'center' },
       { titolo: 'Off.', valore: (p) => breve(Elenco.sintesiOrdini(p, 'offerta')), larghezza: 14, allinea: 'center' },
       { titolo: 'VPU', valore: (p) => breve(Elenco.sintesiOrdini(p, 'vpu')), larghezza: 14, allinea: 'center' }
-    ], progetti, {
+    ];
+    K.tabella(doc, y, conTeam(colonneElenco, o.team, { 'Applicativo': 2, 'Project manager': 2, 'Periodo': 2, 'Descrizione': 13 }), progetti, {
       fontSize: 7.5,
       coloraRiga: rigaVerde,
       piede: [
-        { content: 'Totale progetti: ' + tot.progetti + '   -   Ordini: ' + tot.ordini + '   -   Attività: ' + tot.attivita, colSpan: 7 },
+        { content: 'Totale progetti: ' + tot.progetti + '   -   Ordini: ' + tot.ordini + '   -   Attività: ' + tot.attivita, colSpan: o.team ? 8 : 7 },
         { content: euro(tot.costo), styles: { halign: 'right' } },
         { content: '', colSpan: 4 }
       ]
@@ -187,8 +201,8 @@
 
   // ---------------------------------------------------------------------- scadenze
 
-  // righe: risultato di Scadenze.classifica.
-  function scadenze(righe, oggi) {
+  // righe: risultato di Scadenze.classifica. team: (riga) => nome del team, solo con piu' team.
+  function scadenze(righe, oggi, team) {
     const doc = K.nuovoDocumento('l');
     let y = K.intestazione(doc, 'Report attività in scadenza');
     const r = Scadenze.riepilogo(righe);
@@ -221,7 +235,7 @@
     } else {
       const sfondo = { 'SCADUTA': C.rossoChiaro, 'IN CORSO': C.verdeChiaro, 'DA AVVIARE': C.bluChiaro };
       const colTag = { 'SCADUTA': C.rosso, 'IN CORSO': C.verde, 'DA AVVIARE': C.blu };
-      K.tabella(doc, y, [
+      const colonneScadenze = [
         { titolo: 'Codice', valore: (r2) => r2.codice, larghezza: 24, cella: (d) => { d.cell.styles.fontStyle = 'bold'; } },
         { titolo: 'Applicativo', valore: (r2) => r2.applicativo || '-', larghezza: 30 },
         { titolo: 'Progetto', valore: (r2) => r2.progetto || '-', larghezza: 50 },
@@ -231,7 +245,8 @@
         { titolo: 'GG', valore: (r2) => (r2.giorni == null ? '' : String(r2.giorni)), larghezza: 12, allinea: 'right' },
         { titolo: 'Classificazione', valore: (r2) => r2.tag, larghezza: 28, cella: (d, r2) => K.etichetta(d, colTag[r2.tag]) },
         { titolo: 'Note', valore: (r2) => r2.note || '', larghezza: 33 }
-      ], righe, { coloraRiga: (r2) => sfondo[r2.tag] });
+      ];
+      K.tabella(doc, y, conTeam(colonneScadenze, team, { 'Progetto': 12, 'Note': 10 }), righe, { coloraRiga: (r2) => sfondo[r2.tag] });
     }
 
     K.piePagina(doc, 'Monitoraggio Progetti', 'Attività: ' + righe.length);
@@ -240,8 +255,8 @@
 
   // ------------------------------------------------------------------------- VPU
 
-  // righe: risultato di Vpu.daEmettere.
-  function vpu(righe, oggi) {
+  // righe: risultato di Vpu.daEmettere. team: (riga) => nome del team, solo con piu' team.
+  function vpu(righe, oggi, team) {
     const doc = K.nuovoDocumento('l');
     let y = K.intestazione(doc, 'Report VPU da emettere');
 
@@ -261,7 +276,7 @@
     if (!righe.length) {
       K.blocco(doc, y, 'VPU', 'Nessun VPU da emettere.');
     } else {
-      K.tabella(doc, y, [
+      const colonneVpu = [
         { titolo: 'Codice', valore: (r) => r.codice, larghezza: 26, cella: (d) => { d.cell.styles.fontStyle = 'bold'; } },
         { titolo: 'Applicativo', valore: (r) => r.applicativo || '-', larghezza: 34 },
         { titolo: 'Descrizione', valore: (r) => r.descrizione || '-', larghezza: 80 },
@@ -270,8 +285,9 @@
         { titolo: 'Fine', valore: (r) => data(r.fine), larghezza: 22 },
         { titolo: 'Importo', valore: (r) => euro(r.importo), larghezza: 31, allinea: 'right' },
         { titolo: 'GG', valore: (r) => String(r.giorniDallaFine), larghezza: 18, allinea: 'right' }
-      ], righe, {
-        piede: [{ content: 'Totale: ' + righe.length + ' ordini', colSpan: 6 }, { content: euro(importoTotale), styles: { halign: 'right' } }, '']
+      ];
+      K.tabella(doc, y, conTeam(colonneVpu, team, { 'Descrizione': 22 }), righe, {
+        piede: [{ content: 'Totale: ' + righe.length + ' ordini', colSpan: team ? 7 : 6 }, { content: euro(importoTotale), styles: { halign: 'right' } }, '']
       });
     }
 

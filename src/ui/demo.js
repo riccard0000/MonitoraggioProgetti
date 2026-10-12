@@ -104,5 +104,26 @@
     ];
   }
 
+  // I progetti di esempio divisi in tre team, ognuno con la sua configurazione.
+  const TEAM_DEMO = [
+    { nome: 'Team Energia', codici: ['EVO-26-001', 'EVO-26-003', 'EVO-26-004', 'EVO-26-006'],
+      config: { fteProgetto: 0.2, destinatariVpu: ['vpu.energia@esempio.it'] } },
+    { nome: 'Team Portali', codici: ['EVO-26-002', 'EVO-26-005', 'EVO-26-007', 'EVO-26-010'],
+      config: { fteProgetto: 0.25, destinatariVpu: ['vpu.portali@esempio.it'] } },
+    { nome: 'Team ERP', codici: ['EVO-26-008', 'EVO-26-009'],
+      config: { fteProgetto: 0.3, destinatariVpu: ['vpu.erp@esempio.it'] } }
+  ];
+
+  // -> [{ nome, progetti, config }]
+  function squadreDemo(oggi) {
+    const tutti = datiDemo(oggi);
+    return TEAM_DEMO.map((t) => ({
+      nome: t.nome,
+      config: t.config,
+      progetti: tutti.filter((p) => t.codici.includes(p.codice))
+    }));
+  }
+
   UI.datiDemo = datiDemo;
+  UI.squadreDemo = squadreDemo;
 })(window);

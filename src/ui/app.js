@@ -1,5 +1,5 @@
-/* Avvio dell'applicazione: schermata iniziale, apertura della cartella dei dati, schede, avvisi
- * (copie di conflitto, file illeggibili) e ricaricamento dei dati.
+/* Avvio dell'applicazione: schermata iniziale, apertura della cartella dei dati (uno o piu' team),
+ * schede, avvisi (copie di conflitto, file illeggibili, sola lettura) e ricaricamento dei dati.
  */
 (function (radice) {
   'use strict';
@@ -11,32 +11,85 @@
   const Modello = MP.modello;
 
   const radiceDom = document.getElementById('radice');
+  const $ = (id) => document.getElementById(id);
+
+  // «Sola consultazione» si ricorda su questo PC: chi deve solo vedere (il responsabile) la attiva
+  // una volta e basta.
+  const leggiPreferenza = () => { try { return radice.localStorage.getItem('mp-consultazione') === '1'; } catch (e) { return false; } };
+  const salvaPreferenza = (v) => { try { radice.localStorage.setItem('mp-consultazione', v ? '1' : '0'); } catch (e) { /* facoltativo */ } };
 
   UI.viste = UI.viste || {};
   UI.stato = {
-    adapter: null,            // adapter di salvataggio (cartella o memoria)
+    adapter: null,            // archivio di salvataggio (uno o piu' team)
     modalita: null,           // 'cartella' | 'demo'
-    voci: [],                 // [{ progetto, rev }]
+    voci: [],                 // [{ progetto, rev, team }]
+    squadre: [],              // stato dei team: [{ nome, ok, scrivibile, soloLettura, motivo, nuova, ... }]
+    configPerTeam: {},        // { nomeTeam: configurazione }
+    consultazione: leggiPreferenza(),
     copieConflitto: [],
     erroriFile: [],
-    config: Modello.creaConfigurazione(),
-    filtri: { testo: '', fasi: [] },
+    filtri: { testo: '', fasi: [], team: '' },
     ordinamento: { campo: 'codice', direzione: 1 },
     vista: 'riepilogo',
     caricatoIl: 0
   };
 
+  // ----------------------------------------------------------------- accesso ai dati
+
   UI.progetti = () => UI.stato.voci.map((v) => v.progetto);
-  UI.voce = (codice) => UI.stato.voci.find((v) => Codice.uguali(v.progetto.codice, codice)) || null;
+  UI.voce = (codice, team) => UI.stato.voci.find((v) => Codice.uguali(v.progetto.codice, codice) && (!team || v.team === team)) || null;
+  UI.teamDi = (codice) => { const v = UI.voce(codice); return v ? v.team : ''; };
+  UI.multi = () => UI.stato.squadre.length > 1;
+  UI.squadreScrivibili = () => UI.stato.squadre.filter((s) => s.scrivibile);
+
+  // Si puo' scrivere nel team indicato? Senza argomento: si puo' scrivere in almeno un team?
+  UI.scrivibile = (team) => {
+    if (team) return UI.stato.squadre.some((s) => s.nome === team && s.scrivibile);
+    return UI.stato.squadre.some((s) => s.scrivibile);
+  };
+
+  // Configurazione di un team (senza argomento: del primo team).
+  UI.config = (team) => {
+    const S = UI.stato;
+    const nome = team || (S.squadre[0] && S.squadre[0].nome);
+    return S.configPerTeam[nome] || Modello.creaConfigurazione();
+  };
 
   // Dopo un salvataggio riuscito: aggiorna l'elenco locale senza rileggere la cartella.
   UI.registraVoce = function (esito, codicePrecedente) {
+    const S = UI.stato;
     const chiavi = [Codice.chiave(esito.progetto.codice)];
     if (codicePrecedente) chiavi.push(Codice.chiave(codicePrecedente));
+    S.voci = S.voci.filter((v) => !(v.team === esito.team && chiavi.includes(Codice.chiave(v.progetto.codice))));
+    S.voci.push({ progetto: esito.progetto, rev: esito.rev, team: esito.team });
+    S.voci.sort((a, b) => {
+      const ka = Codice.chiave(a.progetto.codice);
+      const kb = Codice.chiave(b.progetto.codice);
+      return ka !== kb ? (ka < kb ? -1 : 1) : (a.team < b.team ? -1 : 1);
+    });
+    if (S.adapter) S.squadre = S.adapter.squadre();
+  };
+
+  // Se la scrittura e' stata rifiutata perche' si e' in sola lettura, lo dice e aggiorna lo stato.
+  // -> true se l'errore era di questo tipo (e quindi e' gia' stato gestito).
+  UI.gestisciErroreScrittura = function (e) {
+    if (!e || e.name !== 'SolaLettura') return false;
     const S = UI.stato;
-    S.voci = S.voci.filter((v) => !chiavi.includes(Codice.chiave(v.progetto.codice)));
-    S.voci.push({ progetto: esito.progetto, rev: esito.rev });
-    S.voci.sort((a, b) => (Codice.chiave(a.progetto.codice) < Codice.chiave(b.progetto.codice) ? -1 : 1));
+    if (S.adapter) S.squadre = S.adapter.squadre();
+    UI.toast(e.message, 'avviso');
+    UI.aggiorna();
+    return true;
+  };
+
+  UI.impostaConsultazione = function (valore) {
+    const S = UI.stato;
+    S.consultazione = !!valore;
+    if (S.adapter) {
+      S.adapter.impostaConsultazione(S.consultazione);
+      S.squadre = S.adapter.squadre();
+    }
+    if (S.modalita !== 'demo') salvaPreferenza(S.consultazione);
+    UI.aggiorna();
   };
 
   // ------------------------------------------------- cartella ricordata (IndexedDB)
@@ -73,11 +126,13 @@
 
   async function caricaDati() {
     const S = UI.stato;
-    const [elenco, config] = await Promise.all([S.adapter.elenca(), S.adapter.leggiConfigurazione()]);
+    const elenco = await S.adapter.elenca();
     S.voci = elenco.progetti;
     S.copieConflitto = elenco.copieConflitto;
     S.erroriFile = elenco.errori;
-    S.config = config;
+    S.configPerTeam = await S.adapter.configurazioni();
+    S.squadre = S.adapter.squadre();
+    if (S.filtri.team && !S.squadre.some((s) => s.nome === S.filtri.team)) S.filtri.team = '';
     S.caricatoIl = Date.now();
   }
 
@@ -97,8 +152,11 @@
   // ------------------------------------------------------------ schermata iniziale
 
   async function mostraAvvio(messaggio) {
-    UI.stato.adapter = null;
-    UI.stato.modalita = null;
+    const S = UI.stato;
+    S.adapter = null;
+    S.modalita = null;
+    S.voci = [];
+    S.squadre = [];
     const supportata = typeof radice.showDirectoryPicker === 'function';
     let ultima = null;
     if (supportata && radice.indexedDB) {
@@ -107,7 +165,7 @@
 
     sostituisci(radiceDom, h('main', { class: 'avvio' }, h('div', { class: 'carta' },
       h('h1', {}, '📊 Monitoraggio Progetti'),
-      h('p', {}, 'Evolutive, ordini, attività, VPU e carico FTE. I dati stanno in una cartella condivisa: apri quella del tuo gruppo.'),
+      h('p', {}, 'Evolutive, ordini, attività, VPU e carico FTE. I dati stanno in una cartella condivisa: apri quella del tuo gruppo, oppure la cartella con tutti i team.'),
       messaggio ? h('div', { class: 'banner banner-avviso', role: 'alert' }, messaggio) : null,
       !supportata ? h('div', { class: 'banner banner-errore' },
         'Questo browser non permette di aprire cartelle. Usa Microsoft Edge o Google Chrome.') : null,
@@ -115,6 +173,9 @@
         supportata ? h('button', { type: 'button', class: 'btn btn-primario', onclick: scegliCartella }, 'Apri la cartella dei dati') : null,
         ultima ? h('button', { type: 'button', class: 'btn btn-secondario', onclick: () => riapri(ultima) }, 'Riapri «' + ultima.name + '»') : null,
         h('button', { type: 'button', class: 'btn btn-secondario', onclick: avviaDemo }, 'Prova con dati di esempio')),
+      supportata ? h('label', { class: 'interruttore interruttore-avvio', title: 'Per chi deve solo vedere i progetti: l\'app non permette nessuna modifica' },
+        h('input', { type: 'checkbox', checked: S.consultazione, onchange: (e) => { S.consultazione = e.target.checked; salvaPreferenza(S.consultazione); } }),
+        ' Apri in sola consultazione (per chi deve solo vedere)') : null,
       h('p', { class: 'nota' }, 'I dati di esempio restano solo in questa pagina: non scrivono nulla su disco.'))));
   }
 
@@ -148,7 +209,7 @@
   async function apriCartella(handle) {
     const S = UI.stato;
     try {
-      S.adapter = await MP.cartella.creaCartella(handle);
+      S.adapter = await MP.archivio.apriArchivio(handle, { consultazione: S.consultazione });
       S.modalita = 'cartella';
       await caricaDati();
     } catch (e) {
@@ -161,10 +222,11 @@
 
   async function avviaDemo() {
     const S = UI.stato;
-    S.adapter = MP.memoria.creaMemoria({
-      progetti: UI.datiDemo(UI.oggiIso()).map((p) => ({ progetto: p, rev: 1 })),
-      config: { destinatariVpu: ['vpu@esempio.it'] }
-    });
+    S.consultazione = false;
+    S.adapter = MP.archivio.creaArchivio(UI.squadreDemo(UI.oggiIso()).map((s) => ({
+      nome: s.nome,
+      adapter: MP.memoria.creaMemoria({ progetti: s.progetti.map((p) => ({ progetto: p, rev: 1 })), config: s.config })
+    })), { nome: 'Dati di prova' });
     S.modalita = 'demo';
     await caricaDati();
     mostraApp();
@@ -181,25 +243,9 @@
   const SCHEDE = ['riepilogo', 'vpu', 'scadenze', 'fte'];
 
   function mostraApp() {
-    const S = UI.stato;
-    const demo = S.modalita === 'demo';
-
-    const testata = h('header', { class: 'testata' },
-      h('div', {}, h('h1', {}, '📊 Monitoraggio Progetti'), h('p', {}, 'Gestione del portafoglio progetti, ordini e attività')),
-      h('span', { class: 'spazio' }),
-      h('div', { class: 'cartella-attiva' + (demo ? ' demo' : '') },
-        demo ? 'Dati di prova: non vengono salvati' : '📁 ' + S.adapter.nome,
-        h('button', { type: 'button', class: 'btn btn-chiaro', onclick: () => mostraAvvio() }, demo ? 'Esci' : 'Cambia cartella')));
-
-    const barra = h('div', { class: 'barra' },
-      h('button', { type: 'button', class: 'btn btn-ok', onclick: () => UI.apriModulo(null) }, '+ Nuovo progetto'),
-      h('button', { type: 'button', class: 'btn btn-scuro', onclick: () => UI.apriImportazione() }, 'Importa CSV'),
-      h('span', { class: 'spazio' }),
-      h('button', { type: 'button', class: 'btn btn-secondario', onclick: async () => { if (await UI.ricarica()) UI.toast('Dati aggiornati', 'ok'); } }, '↻ Aggiorna'),
-      h('button', { type: 'button', class: 'btn btn-secondario', onclick: () => UI.apriImpostazioni() }, '⚙ Impostazioni'));
-
     sostituisci(radiceDom, h('div', { class: 'contenitore' },
-      testata, barra,
+      h('header', { class: 'testata', id: 'testata' }),
+      h('div', { class: 'barra', id: 'barra' }),
       h('div', { id: 'banner' }),
       h('div', { class: 'schede', role: 'tablist', id: 'schede' }),
       h('main', { class: 'pannello', id: 'contenuto', role: 'tabpanel' })));
@@ -207,8 +253,10 @@
   }
 
   UI.aggiorna = function () {
-    const contenuto = document.getElementById('contenuto');
+    const contenuto = $('contenuto');
     if (!contenuto) return;
+    disegnaTestata();
+    disegnaBarra();
     disegnaBanner();
     disegnaSchede();
     if (UI.vistaAttiva && UI.vistaAttiva.chiudi) UI.vistaAttiva.chiudi();
@@ -216,9 +264,37 @@
     UI.vistaAttiva.disegna(contenuto);
   };
 
+  function disegnaTestata() {
+    const S = UI.stato;
+    const demo = S.modalita === 'demo';
+    sostituisci($('testata'),
+      h('div', {}, h('h1', {}, '📊 Monitoraggio Progetti'), h('p', {}, 'Gestione del portafoglio progetti, ordini e attività')),
+      h('span', { class: 'spazio' }),
+      h('div', { class: 'cartella-attiva' + (demo ? ' demo' : '') },
+        (demo ? 'Dati di prova: non vengono salvati' : '📁 ' + S.adapter.nome) + (UI.multi() ? ' · ' + S.squadre.length + ' team' : ''),
+        h('label', { class: 'interruttore', title: 'Non permette nessuna modifica: per chi deve solo vedere i progetti' },
+          h('input', { type: 'checkbox', checked: S.consultazione, onchange: (e) => UI.impostaConsultazione(e.target.checked) }),
+          ' Sola consultazione'),
+        h('button', { type: 'button', class: 'btn btn-chiaro', onclick: () => mostraAvvio() }, demo ? 'Esci' : 'Cambia cartella')));
+  }
+
+  function disegnaBarra() {
+    const S = UI.stato;
+    const puoScrivere = UI.scrivibile();
+    const perche = S.consultazione
+      ? 'In sola consultazione non si può modificare'
+      : 'Nessun team in cui hai il permesso di modificare';
+    sostituisci($('barra'),
+      h('button', { type: 'button', class: 'btn btn-ok', disabled: !puoScrivere, title: puoScrivere ? null : perche, onclick: () => UI.apriModulo(null) }, '+ Nuovo progetto'),
+      h('button', { type: 'button', class: 'btn btn-scuro', disabled: !puoScrivere, title: puoScrivere ? null : perche, onclick: () => UI.apriImportazione() }, 'Importa CSV'),
+      h('span', { class: 'spazio' }),
+      h('button', { type: 'button', class: 'btn btn-secondario', onclick: async () => { if (await UI.ricarica()) UI.toast('Dati aggiornati', 'ok'); } }, '↻ Aggiorna'),
+      h('button', { type: 'button', class: 'btn btn-secondario', onclick: () => UI.apriImpostazioni() }, '⚙ Impostazioni'));
+  }
+
   function disegnaSchede() {
     const S = UI.stato;
-    sostituisci(document.getElementById('schede'), SCHEDE.map((k) => {
+    sostituisci($('schede'), SCHEDE.map((k) => {
       const v = UI.viste[k];
       const conta = v.conta ? v.conta() : null;
       return h('button', {
@@ -230,26 +306,66 @@
 
   function disegnaBanner() {
     const S = UI.stato;
-    const box = document.getElementById('banner');
     const voci = [];
+    const multi = UI.multi();
+
+    if (S.consultazione) {
+      voci.push(h('div', { class: 'banner banner-info' },
+        '👁 Sola consultazione: puoi vedere tutto ma non modificare nulla. Chi deve modificare la disattiva in alto.'));
+    } else {
+      const inSolaLettura = S.squadre.filter((s) => s.soloLettura && s.ok);
+      if (inSolaLettura.length) {
+        voci.push(h('div', { class: 'banner banner-info' },
+          '🔒 In sola lettura: ' + inSolaLettura.map((s) => s.nome).join(', ') +
+          '. La cartella non permette di modificare (permessi di SharePoint): i progetti si vedono ma non si possono cambiare.'));
+      }
+    }
 
     if (S.copieConflitto.length) {
+      const risolvibili = S.copieConflitto.some((c) => UI.scrivibile(c.team));
       voci.push(h('div', { class: 'banner banner-avviso', role: 'alert' },
         h('span', { class: 'spazio' }, '⚠ ' + S.copieConflitto.length + (S.copieConflitto.length === 1 ? ' copia di conflitto' : ' copie di conflitto') +
-          ': due persone hanno salvato lo stesso progetto quasi insieme e OneDrive ha tenuto entrambe le versioni.'),
-        h('button', { type: 'button', class: 'btn btn-primario btn-piccolo', onclick: apriConflitti }, 'Risolvi…')));
+          ': due persone hanno salvato lo stesso progetto quasi insieme e OneDrive ha tenuto entrambe le versioni.' +
+          (risolvibili ? '' : ' Le risolve chi ha il permesso di modificare il team.')),
+        h('button', { type: 'button', class: 'btn btn-primario btn-piccolo', onclick: apriConflitti }, risolvibili ? 'Risolvi…' : 'Vedi…')));
     }
+
     if (S.erroriFile.length) {
       voci.push(h('div', { class: 'banner banner-errore', role: 'alert' },
-        h('span', { class: 'spazio' }, '⚠ ' + S.erroriFile.length + (S.erroriFile.length === 1 ? ' file non leggibile' : ' file non leggibili') +
-          ' nella cartella dei progetti: ' + S.erroriFile.map((e) => e.file + ' (' + e.messaggio + ')').join('; ') +
+        h('span', { class: 'spazio' }, '⚠ ' + S.erroriFile.length + (S.erroriFile.length === 1 ? ' elemento non leggibile' : ' elementi non leggibili') +
+          ' nella cartella dei dati: ' +
+          S.erroriFile.map((e) => ((multi && e.team && e.team !== e.file) ? e.team + '/' : '') + e.file + ' (' + e.messaggio + ')').join('; ') +
           '. Non vengono mostrati né modificati.')));
     }
-    if (S.modalita === 'cartella' && S.adapter.nuova && !S.voci.length) {
-      voci.push(h('div', { class: 'banner banner-info' },
-        'Cartella nuova, senza progetti. Il primo salvataggio crea le cartelle progetti e backup; puoi anche importare un CSV.'));
+
+    const configRotte = S.squadre.filter((s) => s.erroreConfig);
+    if (configRotte.length) {
+      voci.push(h('div', { class: 'banner banner-avviso', role: 'alert' },
+        'Impostazioni non leggibili: ' + configRotte.map((s) => s.nome + ' (' + s.erroreConfig + ')').join('; ') +
+        '. Si usano i valori predefiniti: non salvare le impostazioni finché non è risolto.'));
     }
-    sostituisci(box, voci);
+
+    if (multi) {
+      const perCodice = new Map();
+      S.voci.forEach((v) => {
+        const k = Codice.chiave(v.progetto.codice);
+        if (!perCodice.has(k)) perCodice.set(k, []);
+        perCodice.get(k).push(v.team);
+      });
+      const doppi = Array.from(perCodice.entries()).filter(([, team]) => team.length > 1);
+      if (doppi.length) {
+        voci.push(h('div', { class: 'banner banner-avviso', role: 'alert' },
+          '⚠ Codici presenti in più team (non previsto): ' +
+          doppi.map(([k, team]) => k + ' (' + team.join(', ') + ')').join('; ') + '.'));
+      }
+    }
+
+    if (S.modalita === 'cartella' && S.adapter.nuova && !S.voci.length) {
+      voci.push(h('div', { class: 'banner banner-info' }, multi
+        ? 'Le cartelle dei team sono ancora vuote. Il primo salvataggio in un team crea al suo interno le cartelle progetti e backup. Le cartelle dei team le crea il proprietario del sito, con i permessi giusti.'
+        : 'Cartella nuova, senza progetti. Il primo salvataggio crea le cartelle progetti e backup; puoi anche importare un CSV.'));
+    }
+    sostituisci($('banner'), voci);
   }
 
   // ------------------------------------------------------------ copie di conflitto
@@ -264,22 +380,24 @@
   async function apriConflitti() {
     const S = UI.stato;
     if (!S.copieConflitto.length) return;
+    const multi = UI.multi();
 
     const carte = S.copieConflitto.map((c) => {
-      const originale = UI.voce(c.codice);
+      const originale = UI.voce(c.codice, c.team);
       const diversi = originale ? Modello.differenze(originale.progetto, c.progetto).filter((k) => k !== 'codice') : [];
+      const puoRisolvere = UI.scrivibile(c.team);
       const risolvi = async (scelta) => {
         try {
-          await S.adapter.risolviCopia(c.file, scelta);
+          await S.adapter.risolviCopia(c.file, scelta, c.team);
           UI.toast(scelta === 'usa' ? 'La copia è diventata la versione corrente' : 'Copia scartata', 'ok');
           await UI.ricarica();
           d.chiudi('fatto');
         } catch (e) {
-          UI.toast('Operazione non riuscita: ' + e.message, 'errore');
+          if (!UI.gestisciErroreScrittura(e)) UI.toast('Operazione non riuscita: ' + e.message, 'errore');
         }
       };
       return h('div', { class: 'scheda-info' },
-        h('div', { class: 'titolo-scheda' }, c.codice),
+        h('div', { class: 'titolo-scheda' }, c.codice + (multi ? ' — ' + c.team : '')),
         h('p', { class: 'tenue', style: { margin: '2px 0 8px' } },
           'File ' + c.file + ', salvato il ' + new Date(c.modificato).toLocaleString('it-IT') + '.'),
         originale && diversi.length
@@ -288,9 +406,11 @@
             h('tbody', {}, diversi.map((k) => h('tr', {},
               h('td', {}, UI.etichetteCampi[k] || k), h('td', {}, riassunto(k, originale.progetto)), h('td', {}, riassunto(k, c.progetto))))))
           : h('p', {}, originale ? 'La copia è identica all\'originale.' : 'L\'originale non esiste più: la copia può diventare il progetto.'),
-        h('div', { style: { marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' } },
-          h('button', { type: 'button', class: 'btn btn-secondario btn-piccolo', onclick: () => risolvi('elimina') }, 'Tieni l\'originale, scarta la copia'),
-          h('button', { type: 'button', class: 'btn btn-primario btn-piccolo', onclick: () => risolvi('usa') }, 'Usa la copia al posto dell\'originale')));
+        puoRisolvere
+          ? h('div', { style: { marginTop: '10px', display: 'flex', gap: '8px', flexWrap: 'wrap' } },
+            h('button', { type: 'button', class: 'btn btn-secondario btn-piccolo', onclick: () => risolvi('elimina') }, 'Tieni l\'originale, scarta la copia'),
+            h('button', { type: 'button', class: 'btn btn-primario btn-piccolo', onclick: () => risolvi('usa') }, 'Usa la copia al posto dell\'originale'))
+          : h('p', { class: 'tenue', style: { marginTop: '8px' } }, 'In sola lettura: la risolve chi può modificare il team.'));
     });
 
     const d = UI.dialogo({

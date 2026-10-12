@@ -2,6 +2,12 @@
 // Cartella finta che imita l'interfaccia della File System Access API
 // (getFileHandle, getDirectoryHandle, createWritable, removeEntry, entries ...).
 // Serve a provare in Node tutto cio' che normalmente richiede il browser.
+//
+// `condizioni` si puo' cambiare mentre il test e' in corso (e vale per tutta la cartella):
+//   negaScrittura: nome di un errore (es. 'NotAllowedError'): creare o modificare file fallisce,
+//                  come in una cartella di sola lettura;
+//   negaLettura:   nome di un errore: la cartella non si puo' aprire, come se mancasse il permesso;
+//   permesso:      cosa risponde queryPermission ('granted' o 'prompt').
 
 let orologio = 1000;
 
@@ -9,12 +15,13 @@ function errore(name) {
   return Object.assign(new Error(name), { name });
 }
 
-function creaFile() {
+function creaFile(condizioni) {
   let testo = '';
   let modificato = ++orologio;
   return {
     kind: 'file',
     async createWritable() {
+      if (condizioni.negaScrittura) throw errore(condizioni.negaScrittura);
       let buffer = '';
       return {
         async write(t) { buffer += t; },
@@ -28,36 +35,52 @@ function creaFile() {
 }
 
 // maiuscoleDistinte=false imita Windows/OneDrive (nomi file senza distinzione).
-function creaDir({ nome = 'cartella-finta', maiuscoleDistinte = false, falliSottocartella = false } = {}) {
+function creaDir(opzioni) {
+  const {
+    nome = 'cartella-finta', maiuscoleDistinte = false, falliSottocartella = false,
+    negaScrittura = null, negaLettura = null, permesso = 'granted'
+  } = opzioni || {};
+  const condizioni = (opzioni && opzioni.condizioni) || { negaScrittura, negaLettura, permesso };
   const chiave = (n) => (maiuscoleDistinte ? n : n.toLowerCase());
   const voci = new Map();
+  const leggibile = () => { if (condizioni.negaLettura) throw errore(condizioni.negaLettura); };
+  const scrivibile = () => { if (condizioni.negaScrittura) throw errore(condizioni.negaScrittura); };
+
   return {
     kind: 'directory',
     name: nome,
     voci,
-    async queryPermission() { return 'granted'; },
+    condizioni,
+    async queryPermission() { return condizioni.permesso; },
     async getFileHandle(n, opz = {}) {
+      leggibile();
       let v = voci.get(chiave(n));
       if (!v) {
         if (!opz.create) throw errore('NotFoundError');
-        v = { nome: n, handle: creaFile() };
+        scrivibile();
+        v = { nome: n, handle: creaFile(condizioni) };
         voci.set(chiave(n), v);
       }
       if (v.handle.kind !== 'file') throw errore('TypeMismatchError');
       return v.handle;
     },
     async getDirectoryHandle(n, opz = {}) {
+      leggibile();
       if (falliSottocartella) throw errore('NotAllowedError');
       let v = voci.get(chiave(n));
       if (!v) {
         if (!opz.create) throw errore('NotFoundError');
-        v = { nome: n, handle: creaDir({ nome: n, maiuscoleDistinte }) };
+        scrivibile();
+        // Le condizioni si ereditano dalla cartella madre ma si possono cambiare solo per questa.
+        v = { nome: n, handle: creaDir({ nome: n, maiuscoleDistinte, condizioni: Object.create(condizioni) }) };
         voci.set(chiave(n), v);
       }
       if (v.handle.kind !== 'directory') throw errore('TypeMismatchError');
       return v.handle;
     },
     async removeEntry(n, opz = {}) {
+      leggibile();
+      scrivibile();
       const v = voci.get(chiave(n));
       if (!v) throw errore('NotFoundError');
       if (v.handle.kind === 'directory' && v.handle.voci.size && !opz.recursive) {
@@ -66,6 +89,7 @@ function creaDir({ nome = 'cartella-finta', maiuscoleDistinte = false, falliSott
       voci.delete(chiave(n));
     },
     async *entries() {
+      leggibile();
       for (const v of voci.values()) yield [v.nome, v.handle];
     }
   };

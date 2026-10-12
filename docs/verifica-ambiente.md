@@ -4,6 +4,8 @@ Serve a decidere dove salvare i dati ([architettura.md](architettura.md), «Perc
 
 **Esito (12/10/2026):** il percorso è stato scelto (cartella condivisa, Edge e Chrome; vedi [architettura.md](architettura.md)), quindi la verifica non blocca più nulla. Resta utile per misurare, sulla cartella sincronizzata vera, i tempi e le copie di conflitto con due persone (sezione 4): conviene farlo quando c'è il primo adapter.
 
+**Per i permessi per team (da fare in azienda):** esegui la sezione 3 della pagina su una cartella di team **con l'account del responsabile** (che ha solo la lettura) e poi con quello di un referente. Cosa vedere: con il responsabile arrivano tutte le cartelle dei team; con il referente solo la sua; e come reagisce OneDrive a una scrittura nella cartella di sola lettura (la prova dovrebbe fallire: se riesce, la «sola consultazione» dell'app è indispensabile). Vedi [architettura.md](architettura.md), «Visibilità per team».
+
 ## Cosa controlla
 
 | Sezione | Che cosa | Come |

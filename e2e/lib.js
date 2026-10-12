@@ -156,7 +156,13 @@ async function avviaBrowser(url, opzioni) {
       try { fs.rmSync(profilo, { recursive: true, force: true }); break; } catch (e) { execSync('ping -n 2 127.0.0.1 >nul', { stdio: 'ignore' }); }
     }
   };
-  return { valuta, attendi, schermata, naviga, errori, chiudi, sleep };
+  // Clic del mouse alle coordinate della finestra (serve per la legenda dei grafici, disegnata su canvas).
+  const clicca = async (x, y) => {
+    await invia('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+    await invia('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+    await invia('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+  };
+  return { valuta, attendi, schermata, naviga, clicca, errori, chiudi, sleep };
 }
 
 // ---------------------------------------------------------------- azioni sulla pagina
@@ -197,6 +203,34 @@ function aiuti(b) {
   return { clic, campo, stato, dialoghi, testoDialogo, righeCon, intercettaFile, prossimoFile, intercettaSelettoreFile, scegliFile };
 }
 
+// ------------------------------------------------ cartella privata del browser (OPFS)
+
+// Funzioni iniettate nella pagina per leggere e scrivere la cartella dei dati come farebbe un
+// collega o OneDrive. Con `?opfs` l'app usa la cartella 'monitoraggio-dev' dell'OPFS.
+const CODICE_OPFS = `
+  window.__opfs = async () => (await navigator.storage.getDirectory()).getDirectoryHandle('monitoraggio-dev', {create:true});
+  window.__dir = async (p, crea) => { let d = await __opfs(); for (const x of p) d = await d.getDirectoryHandle(x, {create: !!crea}); return d; };
+  window.__elenca = async (p) => { try { const d = await __dir(p); const n=[]; for await (const [nome] of d.entries()) n.push(nome); return n.sort(); } catch (e) { return null; } };
+  window.__leggi = async (p) => { const d = await __dir(p.slice(0,-1)); return await (await (await d.getFileHandle(p[p.length-1])).getFile()).text(); };
+  window.__scrivi = async (p, x) => { let d = await __opfs(); for (const n of p.slice(0,-1)) d = await d.getDirectoryHandle(n, {create:true}); const w = await (await d.getFileHandle(p[p.length-1], {create:true})).createWritable(); await w.write(x); await w.close(); };
+  window.__rimuovi = async (p) => { const d = await __dir(p.slice(0,-1)); await d.removeEntry(p[p.length-1], {recursive:true}); };
+  true`;
+
+function aiutiOpfs(b) {
+  return {
+    // Aspetta che l'app sia partita e inietta le funzioni (da rifare dopo ogni ricaricamento).
+    async pronta() { await b.attendi("!!document.querySelector('#contenuto')", 8000); await b.valuta(CODICE_OPFS); },
+    // Per quando l'app non e' ancora aperta su una cartella con progetti (prima di creare i team).
+    async inietta() { await b.valuta(CODICE_OPFS); },
+    elenca: (p) => b.valuta('__elenca(' + JSON.stringify(p) + ')'),
+    async leggiJson(p) { return JSON.parse(await b.valuta('__leggi(' + JSON.stringify(p) + ')')); },
+    scrivi: (p, oggetto) => b.valuta('__scrivi(' + JSON.stringify(p) + ',' + JSON.stringify(JSON.stringify(oggetto)) + ')'),
+    scriviTesto: (p, testo) => b.valuta('__scrivi(' + JSON.stringify(p) + ',' + JSON.stringify(testo) + ')'),
+    creaCartella: (p) => b.valuta('(async()=>{await __dir(' + JSON.stringify(p) + ', true);return true})()'),
+    rimuovi: (p) => b.valuta('__rimuovi(' + JSON.stringify(p) + ')')
+  };
+}
+
 const urlFile = (query) => pathToFileURL(path.join(RADICE, 'index.html')).href + (query || '');
 
-module.exports = { RADICE, RISULTATI, sleep, avviaBrowser, avviaServer, aiuti, urlFile };
+module.exports = { RADICE, RISULTATI, sleep, avviaBrowser, avviaServer, aiuti, aiutiOpfs, urlFile };

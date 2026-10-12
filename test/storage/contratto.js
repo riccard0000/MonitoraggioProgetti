@@ -19,7 +19,10 @@ function eseguiContratto(nome, creaAdapter) {
   const t = (titolo, fn) => test(nome + ': ' + titolo, async () => fn(await creaAdapter()));
 
   t('un archivio nuovo è vuoto', async (a) => {
-    assert.deepEqual(await a.elenca(), { progetti: [], copieConflitto: [], errori: [] });
+    const r = await a.elenca();
+    assert.deepEqual(r.progetti, []);
+    assert.deepEqual(r.copieConflitto, []);
+    assert.deepEqual(r.errori, []);
   });
 
   t('un progetto nuovo ottiene la revisione 1 e si rilegge identico', async (a) => {

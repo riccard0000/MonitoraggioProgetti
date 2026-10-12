@@ -5,6 +5,7 @@
   "description": "Monitoraggio di evolutive software: progetti, ordini e attività. Nessun server: dati su risorse Microsoft 365.",
   "scripts": {
     "test": "node --test",
-    "e2e": "node e2e/esegui.js"
+    "e2e": "node e2e/esegui.js",
+    "sandbox": "node scripts/semina-sandbox.js"
   }
 }

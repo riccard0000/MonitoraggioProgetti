@@ -106,6 +106,15 @@ test('FTE: il valore per progetto è un parametro', () => {
   vicino(Fte.mese([p], 2026, 3, { oggi: OGGI, fteProgetto: 0.5 }).fte, 0.5);
 });
 
+test('FTE: il valore per progetto può dipendere dal progetto (un valore per team)', () => {
+  const a = progetto({ codice: 'A-1', inizio: '2026-01-01', fine: '2026-12-31' });
+  const b = progetto({ codice: 'B-1', inizio: '2026-01-01', fine: '2026-12-31' });
+  const perTeam = { 'A-1': 0.2, 'B-1': 0.5 };
+  const r = Fte.mese([a, b], 2026, 3, { oggi: OGGI, fteProgetto: (p) => perTeam[p.codice] });
+  vicino(r.fte, 0.7);
+  assert.deepEqual(r.dettaglio.map((d) => d.fte), [0.2, 0.5]);
+});
+
 test('FTE: progetti senza inizio o con date invertite vengono saltati', () => {
   const senzaInizio = progetto({ codice: 'P-7' });
   const invertito = progetto({ codice: 'P-8', inizio: '2026-05-10', fine: '2026-05-01' });

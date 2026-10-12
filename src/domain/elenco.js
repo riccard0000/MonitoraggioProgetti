@@ -9,11 +9,12 @@
   const Modello = dep('modello');
   const Importi = dep('importi');
 
-  // Tutto cio' che la ricerca deve poter trovare, in minuscolo.
-  function testoRicerca(p) {
+  // Tutto cio' che la ricerca deve poter trovare, in minuscolo. `team` (facoltativo) e' il nome
+  // del team: il progetto non lo contiene, e' un attributo dell'archivio.
+  function testoRicerca(p, team) {
     const costo = Modello.costoProgetto(p);
     const parti = [p.codice, p.applicativo, p.projectManager, p.fase, p.descrizione, p.note, p.promemoria,
-      String(costo), Importi.formatoEuro(costo)];
+      String(costo), Importi.formatoEuro(costo), team];
     (p.ordini || []).forEach((o) => parti.push(o.riferimento, o.offerta, o.vpu));
     (p.attivita || []).forEach((a) => parti.push(a.descrizione, a.note, a.stato));
     return parti.filter((x) => x).join(' ').toLowerCase();
@@ -32,15 +33,19 @@
   }
 
   // `testo`: tutti i termini devono comparire (in qualunque ordine); una frase tra virgolette
-  // vale come un termine unico. `fasi`: se vuoto vale «tutte».
-  function filtra(progetti, filtri) {
+  // vale come un termine unico. `fasi`: se vuoto vale «tutte». `team`: nome del team, se vuoto
+  // vale «tutti». `ctx.team(progetto)` dice a quale team appartiene un progetto.
+  function filtra(progetti, filtri, ctx) {
     const f = filtri || {};
+    const teamDi = ctx && ctx.team;
     const parole = terminiDiRicerca(f.testo);
     const fasi = new Set(f.fasi || []);
     return progetti.filter((p) => {
+      const team = teamDi ? teamDi(p) : '';
+      if (f.team && team !== f.team) return false;
       if (fasi.size && !fasi.has(p.fase)) return false;
       if (!parole.length) return true;
-      const t = testoRicerca(p);
+      const t = testoRicerca(p, team);
       return parole.every((w) => t.includes(w));
     });
   }
@@ -65,11 +70,12 @@
   };
 
   // `direzione`: 1 crescente, -1 decrescente. Restituisce una copia; senza campo, l'ordine originale.
-  function ordina(progetti, campo, direzione) {
+  // `extra`: chiavi di ordinamento aggiuntive, ad esempio { team: (p) => nomeDelTeam }.
+  function ordina(progetti, campo, direzione, extra) {
     const copia = progetti.slice();
     if (!campo) return copia;
     const verso = direzione === -1 ? -1 : 1;
-    const chiave = CHIAVI[campo] || ((p) => p[campo] == null ? '' : p[campo]);
+    const chiave = (extra && extra[campo]) || CHIAVI[campo] || ((p) => p[campo] == null ? '' : p[campo]);
     return copia.sort((a, b) => {
       const x = chiave(a);
       const y = chiave(b);
