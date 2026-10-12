@@ -1,0 +1,9 @@
+{
+  "name": "monitoraggio-progetti",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Monitoraggio di evolutive software: progetti, ordini e attività. Nessun server: dati su risorse Microsoft 365.",
+  "scripts": {
+    "test": "node --test"
+  }
+}

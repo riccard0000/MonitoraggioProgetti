@@ -1,0 +1,6344 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoraggio Progetti</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+<style>
+
+ .action-btn {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 18px;
+    padding: 6px;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+}
+
+/* Colonna Azioni della tabella Riepilogo */
+#list td:last-child {
+    white-*pace: nowrap;
+    min-width: 76px;*    text-align: center;
+}
+
+.edit-btn:hover {
+    background: #eaf4ff;
+    transform: scale(1.1);
+}
+
+.delete-btn:hover {
+    background: #fdeaea;
+    transform: scale(1.1);
+}
+:root {
+    --primary:#2c3e50;
+    --accent:#3498db;
+    --success:#27ae60;
+    --bg:#f4f7f6;
+}
+
+body {
+    font-family:Segoe UI, Tahoma, sans-serif;
+    background:linear-gradient(
+        180deg,
+        #eef4ff 0%,
+        #f4f7f6 100%
+    );
+    margin:0;
+    padding:20px;
+}
+
+table td:first-child {
+    white-space: nowrap; /* impedisce al testo di andare a capo */
+    overflow: hidden;    /* taglia il testo se troppo lungo */
+    text-overflow: ellipsis; /* aggiunge "..." se il testo è più lungo della cella */
+}
+
+.modal-box .field-row {
+    display: grid;
+    grid-template-columns: 150px 1fr; /* colonna fissa per etichetta, colonna flessibile per contenuto */
+    margin-bottom: 8px;
+    align-items: start;
+}
+
+.modal-box .field-row b {
+    display: block;
+    text-align: right;
+    padding-right: 10px;
+}
+
+.full-width {
+  grid-column: 1 / -1;
+}
+
+.form-group-inline {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.form-group-inline .form-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.fase-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+}
+
+.fase-filter label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9em;
+}
+
+/* =========================
+   DROPDOWN FILTRI FASE
+========================= */
+
+.fase-dropdown {
+    position: relative;
+}
+
+.fase-toggle {
+    background: var(--primary);
+    color: white;
+    border: none;
+    padding: 10px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.fase-menu {
+    display: none;
+    position: absolute;
+    top: 45px;
+    left: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 12px;
+    min-width: 260px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+    z-index: 1000;
+}
+
+.fase-menu.show {
+    display: block;
+}
+
+.fase-menu label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.fase-actions {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.fase-actions button {
+    border: none;
+    background: #eee;
+    padding: 6px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+/* =========================
+   BADGE COLORATI
+========================= */
+
+.badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    color: white;
+    font-size: 0.8em;
+    font-weight: bold;
+}
+
+.badge-ideazione {
+    background: #7f8c8d;
+}
+
+.badge-avvio {
+    background: #2980b9;
+}
+
+.badge-analisi {
+    background: #f7dc6f;
+}
+
+.badge-sviluppo {
+    background: #f39c12;
+}
+
+.badge-collaudo {
+    background: #8e44ad;
+}
+
+.badge-certificazione {
+    background: #aed6f1;
+}
+
+.badge-esercizio {
+    background: #27ae60;
+}
+
+/* Stile per attività nel popup */
+.modal-box .activity-box-popup {
+    display: grid;
+    grid-template-columns: 150px 1fr; /* colonna etichetta fissa, colonna contenuto flessibile */
+    margin-bottom: 6px;
+    align-items: start;
+}
+
+.modal-box .activity-box-popup b {
+    text-align: right;
+    padding-right: 10px;
+}
+
+.container {
+    max-width:1400px;
+    margin:auto;
+    background:white;
+    padding:25px;
+    border-radius:18px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.10);
+}
+
+h1,h2 {
+    color:var(--primary);
+    border-bottom:2px solid var(--accent);
+    padding-bottom:10px;
+}
+
+.header{
+    background:linear-gradient(135deg,#1e3a8a,#2563eb);
+    color:white;
+    padding:20px 30px;
+    border-radius:15px;
+    margin-bottom:20px;
+    box-shadow:0 4px 15px rgba(0,0,0,.15);
+}
+
+.header h1{
+    margin:0;
+    color:white;
+    border:none;
+    padding:0;
+}
+
+.header p{
+    margin-top:5px;
+    margin-bottom:0;
+    opacity:.9;
+}
+
+.grid-form {
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+    gap:15px;
+}
+
+.top-actions {
+    display: flex;
+    justify-content: space-between; 
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.import-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+.form-group {
+    display:flex;
+    flex-direction:column;
+    margin-bottom:15px;
+}
+
+input,select,textarea {
+    padding:8px;
+    border:1px solid #ccc;
+    border-radius:4px;
+}
+
+textarea { resize:vertical; }
+
+.btn {
+    padding:10px 20px;
+    border:none;
+    border-radius:10px;
+    cursor:pointer;
+    font-weight:bold;
+    transition:all .2s ease;
+}
+
+.btn:hover{
+    transform:translateY(-2px);
+    box-shadow:0 4px 10px rgba(0,0,0,.15);
+}
+
+.btn-add { background:var(--success); color:white; }
+.btn-export { background:var(--primary); color:white; margin-left:10px; }
+
+table {
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+    font-size:0.85em;
+}
+
+th {
+    background:#1e3a8a;
+    color:white;
+    padding:12px;
+}
+
+td {
+    padding:10px;
+    border-bottom:1px solid #eef2f7;
+}
+
+#list tr:hover {
+    background-color: #f1f1f1;
+    cursor: pointer;
+}
+
+/* Righe della tabella Riepilogo */
+#list tr {
+    background-color: #ffffff;
+}
+
+/* Lo sfondo viene applicato a tutte le celle */
+#list tr td {
+    background-color: inherit;
+}
+
+/* Progetti in esercizio */
+#list tr.fase-esercizio {
+    background-color: #d4edda;
+}
+
+/* Effetto passaggio del mouse */
+#list tr:hover {
+    background-color: #f1f1f1;
+}
+
+#modal {
+    display:none;
+    position:fixed;
+    top:0; left:0;
+    width:100%; height:100%;
+    background:rgba(0,0,0,0.6);
+    justify-content:center;
+    align-items:center;
+	z-index:99999;
+}
+
+.modal-box {
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+
+    width: auto;            
+    min-width: 400px;
+    max-width: 800px;
+
+    max-height: 85vh;
+    overflow: auto;
+
+    position: relative;
+}
+
+/* HEADER POPUP */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+}
+
+/* BOTTONI IN ALTO */
+.modal-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.modal-actions button {
+    padding: 6px 10px;
+    font-size: 0.85em;
+}
+
+/* X chiusura più elegante */
+.modal-actions button:last-child {
+    background: #e74c3c;
+    color: white;
+    border-radius: 4px;
+}
+
+.activity-box {
+    border:1px solid #ddd;
+    padding:12px;
+    margin-bottom:12px;
+    border-radius:8px;
+    background:#fafafa;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+    position:relative;
+	overflow: hidden; /* ✅ blocca fuoriuscita */
+}
+
+.activity-file {
+    display:flex;
+    flex-direction:column;
+    gap:6px;
+    margin-top:4px;
+}
+
+.activity-file label {
+    font-size:0.8em;
+    font-weight:600;
+    color:#555;
+}
+/* NOTE */
+
+
+.activity-note {
+    margin-left: calc(40px + 10px);  /* ✅ sposta tutto: label + textarea */
+}
+
+
+.activity-note textarea {
+    width: 100%;
+    min-height: 60px;
+    resize: vertical;
+
+    box-sizing: border-box;
+    overflow-wrap: break-word;
+}
+
+
+
+/* pulsante elimina */
+.btn-delete-activity {
+    border:none;
+    background:transparent;
+    cursor:pointer;
+    font-size:18px;
+    padding:4px;
+    color:#7f8c8d;
+    transition:0.2s;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}
+
+.btn-delete-activity:hover {
+    color:#e74c3c;
+    transform:scale(1.15);
+}
+
+
+
+.btn-delete-activity:hover {
+    background:#c0392b;
+}
+
+.activity-box textarea {
+    grid-column: span 2;
+}
+
+.charts-wrapper{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:20px;
+    margin:20px 0;
+    flex-wrap:wrap;
+}
+
+.chart-container{
+    width:100%;
+    max-width:500px;
+    padding:20px;
+    background:white;
+    border-radius:18px;
+    box-shadow:0 8px 20px rgba(0,0,0,0.08);
+    transition:all .2s ease;
+}
+
+.chart-container:hover{
+    transform:translateY(-3px);
+}
+
+.left-chart{
+    margin-left:0;
+}
+
+.right-chart{
+    margin-right:0;
+}
+
+.activity-box.completed {
+    border-left: 6px solid #27ae60;
+    background: #eefaf1;
+    position: relative;
+}
+
+.activity-check {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 1.2em;
+    color: #27ae60;
+    font-weight: bold;
+}
+
+/* =========================
+   BARRA INFERIORE
+========================= */
+
+.bottom-bar{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:15px;
+    gap:10px;
+}
+
+.bottom-bar #count{
+    margin:0;
+    font-weight:bold;
+}
+
+.btn-sharepoint{
+    background:#107C41;
+    color:white;
+}
+
+.activity-row {
+    display: grid;
+    grid-template-columns: auto 2fr 1fr 1fr 1fr;
+    gap: 10px;
+    align-items: end;
+}
+
+.activity-field {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.95em;
+}
+
+/* label */
+.activity-field label {
+    margin-bottom: 3px;
+    color: #555;
+    font-weight: 600;
+}
+
+.activity-note label {
+    font-size: 0.95em;
+    margin-bottom: 3px;
+    color: #555;
+    font-weight: 600;
+    display: block;
+}
+
+
+/* campi */
+.activity-row input,
+.activity-row select {
+    width: 100%;
+    height: 34px;
+    padding: 4px;
+    box-sizing: border-box;
+}
+
+/* colonna bottone */
+.delete-col {
+    align-items: center;
+}
+
+.attivita-header{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-top:10px;
+  margin-bottom:10px;
+}
+
+.attivita-header h3{
+  margin:0;
+}
+
+#fteModal th{
+    background:#34495e;
+    color:white;
+    padding:8px;
+    text-align:center;
+}
+
+#fteModal td{
+    padding:8px;
+    vertical-align:middle;
+}
+
+#fteModal table{
+    width:100%;
+    border-collapse:collapse;
+    table-layout:fixed;
+}
+
+#fteModal td:first-child,
+#fteModal th:first-child{
+    text-align:left;
+}
+
+#fteModal table td,
+#fteModal table th{
+    border:1px solid #dcdcdc;
+}
+
+/* =========================
+   MODALE DETTAGLIO PROGETTO MODERNIZZATO
+========================= */
+.modal-body-custom {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    color: #2d3748;
+}
+
+/* Header Modale */
+.modal-title-custom {
+    font-size: 1.3em;
+    font-weight: 700;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Griglia Metriche / KPI */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+}
+
+.kpi-card {
+    background:#ffffff;
+    border:none;
+    border-radius:14px;
+    padding:15px;
+    text-align:center;
+    box-shadow:0 4px 12px rgba(0,0,0,.08);
+    transition:all .2s ease;
+}
+
+.kpi-card .kpi-label {
+    font-size: 0.75em;
+    text-transform: uppercase;
+    color: #718096;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+}
+
+.kpi-card .kpi-value {
+    font-size: 1em;
+    font-weight: bold;
+    color: #1a202c;
+}
+
+/* Barra degli Stati (Promemoria, Offerta, VPU) */
+.status-bar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+    background: #edf2f7;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 0.85em;
+}
+
+.status-badge {
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-weight: bold;
+    font-size: 0.85em;
+}
+
+.status-yes { background: #d4edda; color: #155724; }
+.status-no { background: #f8d7da; color: #721c24; }
+
+/* Sezioni Informative (Descrizione, Note, Sito) */
+.detail-card {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px 15px;
+}
+
+.detail-card-title {
+    font-size: 0.8em;
+    font-weight: 700;
+    color: #4a5568;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.detail-card-content {
+    font-size: 0.9em;
+    line-height: 1.5;
+    color: #2d3748;
+    white-space: pre-line;
+}
+
+/* Tabella Attività */
+.popup-activities-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85em;
+    margin-top: 6px;
+}
+
+.popup-activities-table th {
+    background: #f1f5f9;
+    color: #4a5568;
+    padding: 8px;
+    text-align: left;
+    font-weight: 600;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.popup-activities-table td {
+    padding: 8px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+#temporaryPdfContainer {
+    line-height: 1.4;
+}
+
+#temporaryPdfContainer .modal-body-custom {
+    width: 100%;
+}
+
+#temporaryPdfContainer .kpi-grid {
+    grid-template-columns: repeat(4, 1fr);
+}
+
+#temporaryPdfContainer .kpi-card,
+#temporaryPdfContainer .status-bar,
+#temporaryPdfContainer .detail-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+#temporaryPdfContainer .popup-activities-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+}
+
+#temporaryPdfContainer .popup-activities-table th,
+#temporaryPdfContainer .popup-activities-table td {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+#temporaryPdfContainer .popup-activities-table tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+}
+
+table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--primary);
+    color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+#projectAccordion{
+    margin-bottom:20px;
+    border:1px solid #ddd;
+    border-radius:8px;
+    overflow:hidden;
+}
+
+#projectAccordion summary{
+    background:#2c3e50;
+    color:#fff;
+    padding:12px;
+    font-weight:bold;
+    cursor:pointer;
+}
+
+#projectAccordion summary:hover{
+    background:#34495e;
+}
+
+#projectAccordion form{
+    padding:15px;
+    background:white;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+    <div>
+        <h1>📊 Monitoraggio Progetti</h1>
+        <p>Gestione portafoglio progetti e attività</p>
+    </div>
+</div>
+
+<details id="projectAccordion">
+    <summary>📂 Gestione Progetto</summary>
+<form id="form">
+
+<div class="grid-form">
+  <div class="form-group">
+    <label for="applicativo">Applicativo</label>
+    <input id="applicativo" required>
+  </div>
+
+  <div class="form-group">
+    <label for="projectManager">Project Manager</label>
+    <input id="projectManager">
+  </div>
+  
+  <div class="form-group">
+    <label for="codice">Codice</label>
+    <input id="codice" required>
+  </div>
+  
+  <div class="form-group">
+    <label for="rifOrdine">Riferimento Ordine</label>
+    <input id="rifOrdine">
+  </div>
+  
+  <div class="form-group">
+    <label for="costo">Costo</label>
+    <input id="costo">
+  </div>
+  
+  <div class="form-group">
+    <label for="fase">Fase</label>
+    <select id="fase">
+      <option>Ideazione</option>
+	  <option>Avvio</option>
+      <option>Analisi</option>
+      <option>Sviluppo</option>
+      <option>Collaudo</option>
+      <option>Certificazione</option>
+      <option>Esercizio</option>
+    </select>
+  </div>
+  
+  <div class="form-group">
+    <label for="dataInizio">Data Inizio</label>
+    <input type="date" id="dataInizio">
+  </div>
+  
+  <div class="form-group">
+    <label for="dataFine">Data Fine</label>
+    <input type="date" id="dataFine">
+  </div>
+  <div class="form-group">
+    <label for="Sito di progetto">Sito di progetto</label>
+    <input id="sitoProgetto" type="url">
+  </div>
+<div class="form-group-inline full-width">
+  <div class="form-group">
+    <label for="promemoria">Promemoria</label>
+    <select id="promemoria">
+      <option>NO</option>
+      <option>SI</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="offerta">Offerta</label>
+    <select id="offerta">
+      <option>NO</option>
+      <option>SI</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="vpu">VPU</label>
+    <select id="vpu">
+      <option>NO</option>
+      <option>SI</option>
+    </select>
+  </div>
+</div>  
+</div>
+
+<div class="form-group">
+<label>Descrizione</label>
+<textarea id="descrizione"></textarea>
+</div>
+
+<div class="form-group">
+<label>Note</label>
+<textarea id="note"></textarea>
+</div>
+
+<div class="attivita-header">
+  <h3>Attività</h3>
+
+  <button type="button" class="btn btn-export" id="sortBtn" onclick="toggleActivitySort()">
+    Ordinamento Attività ↑
+  </button>
+</div>
+
+<div id="activities"></div>
+
+<button type="button" onclick="addActivity()">+ Aggiungi attività</button>
+
+<br><br>
+
+<button type="submit" class="btn btn-add">Salva progetto</button>
+
+</form>
+</details>
+
+<hr>
+
+<h2>Riepilogo</h2>
+<div class="top-actions">
+  <button type="button" class="btn btn-export" onclick="exportCSV()">Export CSV</button>
+  <button
+    type="button"
+    class="btn btn-export"
+    onclick="exportScadenzePDF()">
+    📄 Report Scadenze PDF
+   </button>
+   <button
+    type="button"
+    class="btn btn-export"
+    onclick="exportReportVPU()">
+    📋 Report VPU da emettere
+  </button>
+   
+   <button
+    type="button"
+    class="btn btn-export"
+    onclick="showFTEReport()">
+    📊 Analisi FTE
+</button>
+
+  <div class="import-group">
+    <input type="file" id="importFile" accept=".csv,.xlsx">
+    <button type="button" class="btn btn-export" onclick="importData()">Import</button>
+  </div>
+</div>
+<hr>
+<div class="grid-form">
+<input id="searchText" placeholder="🔍 Cerca..." oninput="render()">
+<div class="fase-dropdown">
+
+  <button type="button" class="fase-toggle" onclick="toggleFaseMenu()">
+    Filtra Fasi ▼
+  </button>
+
+  <div id="filterFase" class="fase-menu">
+
+    <div class="fase-actions">
+      <button type="button" onclick="selectAllFasi()">Seleziona tutto</button>
+      <button type="button" onclick="clearAllFasi()">Deseleziona tutto</button>
+    </div>
+
+    <label>
+      <input type="checkbox" value="Ideazione" onchange="render()">
+      <span class="badge badge-ideazione">Ideazione</span>
+      <span id="count-Ideazione"></span>
+    </label>
+
+    <label>
+      <input type="checkbox" value="Avvio" onchange="render()">
+      <span class="badge badge-ideazione">Avvio</span>
+      <span id="count-Avvio"></span>
+    </label>
+
+    <label>
+      <input type="checkbox" value="Analisi" onchange="render()">
+      <span class="badge badge-analisi">Analisi</span>
+      <span id="count-Analisi"></span>
+    </label>
+
+    <label>
+      <input type="checkbox" value="Sviluppo" onchange="render()">
+      <span class="badge badge-sviluppo">Sviluppo</span>
+      <span id="count-Sviluppo"></span>
+    </label>
+
+    <label>
+      <input type="checkbox" value="Collaudo" onchange="render()">
+      <span class="badge badge-collaudo">Collaudo</span>
+      <span id="count-Collaudo"></span>
+    </label>
+
+    <label>
+      <input type="checkbox" value="Certificazione" onchange="render()">
+      <span class="badge badge-certificazione">Certificazione</span>
+      <span id="count-Certificazione"></span>
+    </label>
+
+    <label>
+      <input type="checkbox" value="Esercizio" onchange="render()">
+      <span class="badge badge-esercizio">Esercizio</span>
+      <span id="count-Esercizio"></span>
+    </label>
+
+  </div>
+</div>
+<button onclick="resetFiltri()">Reimposta filtri</button>
+</div>
+
+<div class="charts-wrapper">
+
+    <div class="chart-container left-chart">
+        <canvas id="faseChart"
+                width="900"
+                height="900"></canvas>
+    </div>
+
+    <div class="chart-container right-chart">
+        <canvas id="costiChart"
+                width="900"
+                height="900"></canvas>
+    </div>
+
+</div>
+
+<table>
+<thead>
+<tr>
+<th onclick="setSort('codice')">Codice</th>
+<th onclick="setSort('applicativo')">Applicativo</th>
+<th onclick="setSort('projectManager')">Project Manager</th>
+<th onclick="setSort('fase')">Fase</th>
+<th onclick="setSort('periodo')">Periodo</th>
+<th onclick="setSort('descrizione')">Descrizione</th>
+<th onclick="setSort('rifOrdine')">Rif. Ordine</th>
+<th onclick="setSort('costo')">Costo</th>
+<th onclick="setSort('promemoria')">Promemoria</th>
+<th onclick="setSort('offerta')">Offerta</th>
+<th onclick="setSort('vpu')">VPU</th>
+<th>Azioni</th>
+</tr>
+</thead>
+<tbody id="list"></tbody>
+</table>
+
+<div class="bottom-bar">
+
+    <p id="count"></p>
+
+    <button
+        type="button"
+        class="btn btn-export"
+        onclick="exportSummaryPDF()">
+        📄 Export PDF Riepilogo
+    </button>
+
+<button
+    type="button"
+    class="btn btn-sharepoint"
+    onclick="exportSharePoint()">
+    Connettore Liste SharePoint
+</button>
+
+</div>
+
+</div>
+
+<div id="modal">
+<div class="modal-box">
+
+<div class="modal-header">
+    <h3>Dettaglio Progetto</h3>
+
+    <div class="modal-actions">
+        <button class="btn btn-export" onclick="exportPDF()">
+            📄 Export PDF
+        </button>
+
+        <button onclick="closeModal()">
+            ✖
+        </button>
+    </div>
+</div>
+
+<div id="modalContent"></div>
+
+</div>
+</div>
+</div>
+
+<script>
+let data = JSON.parse(localStorage.getItem("projects")||"[]");
+const form = document.getElementById("form");
+//
+const activities = document.getElementById("activities");
+const projectAccordion =
+    document.getElementById("projectAccordion");
+const applicativo = document.getElementById("applicativo");
+const projectManager = document.getElementById("projectManager");
+const codice = document.getElementById("codice");
+const rifOrdine = document.getElementById("rifOrdine");
+const costo = document.getElementById("costo");
+const fase = document.getElementById("fase");
+const dataInizio = document.getElementById("dataInizio");
+const dataFine = document.getElementById("dataFine");
+const sitoProgetto = document.getElementById("sitoProgetto");
+const descrizione = document.getElementById("descrizione");
+const note = document.getElementById("note");
+const promemoria = document.getElementById("promemoria");
+const offerta = document.getElementById("offerta");
+const vpu = document.getElementById("vpu");
+const searchText = document.getElementById("searchText");
+const modal = document.getElementById("modal");
+const modalContent = document.getElementById("modalContent");
+//
+let activitySortDirection = 1; // 1 = asc, -1 = desc
+let sortField = null;
+let sortDirection = 1;
+let editId = null;
+let faseChart = null;
+let costiChart = null;
+let currentProject = null;
+const centerTextPlugin = {
+
+    id: 'centerText',
+
+    beforeDraw(chart) {
+
+        const { ctx } = chart;
+
+        const meta = chart.getDatasetMeta(0);
+
+        if (!meta || !meta.data || !meta.data.length) return;
+
+        // arco del doughnut
+        const arc = meta.data[0];
+
+        // centro reale
+        const centerX = arc.x;
+        const centerY = arc.y;
+
+        // raggio interno reale
+        const innerRadius = arc.innerRadius;
+
+        let text =
+            chart.config.options.plugins.centerText.text || "";
+
+        // spazio disponibile nel foro
+        const maxWidth = innerRadius * 1.6;
+
+        // dimensione iniziale
+        let fontSize = innerRadius / 3;
+
+        ctx.save();
+
+        // riduzione intelligente
+        do {
+
+            ctx.font = `bold ${fontSize}px Segoe UI`;
+
+            fontSize--;
+
+        } while (
+            ctx.measureText(text).width > maxWidth &&
+            fontSize > 10
+        );
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = "#2c3e50";
+
+        ctx.fillText(text, centerX, centerY);
+
+        ctx.restore();
+    }
+};
+
+const faseColors = {
+    Ideazione: "#7f8c8d",
+    Avvio: "#2980b9",
+	Analisi: "#f7dc6f",
+    Sviluppo: "#f39c12",
+    Collaudo: "#8e44ad",
+    Certificazione: "#aed6f1",
+    Esercizio: "#27ae60"
+};
+
+function formatDateIT(dateStr){
+    if(!dateStr) return "";
+    let d = new Date(dateStr);
+    if(isNaN(d)) return dateStr; // se non è una data valida
+    let day = String(d.getDate()).padStart(2,'0');
+    let month = String(d.getMonth()+1).padStart(2,'0');
+    let year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+}
+function calcolaDurata(progetto){
+
+    // prende tutte le date inizio attività valide
+    let dateAttivita = progetto.attivita
+        .map(a => a.inizio)
+        .filter(d => d);
+
+    // se non ci sono attività usa data progetto
+    if(dateAttivita.length === 0){
+
+        if(!progetto.inizio){
+            return "";
+        }
+
+        dateAttivita.push(progetto.inizio);
+    }
+
+    // trova la data più vecchia
+    let minDate = new Date(
+        Math.min(
+            ...dateAttivita.map(d => new Date(d))
+        )
+    );
+
+    // data finale:
+    // se esiste fine progetto usa quella
+    // altrimenti usa oggi
+    let endDate = progetto.fine
+        ? new Date(progetto.fine)
+        : new Date();
+
+    // differenza millisecondi
+    let diff =
+        endDate - minDate;
+
+    // conversione giorni
+    let giorni =
+        Math.floor(
+            diff / (1000 * 60 * 60 * 24)
+        );
+
+    // evita negativi
+    if(giorni < 0){
+        giorni = 0;
+    }
+
+    return giorni;
+}
+
+function safe(v){ return (v===undefined||v===null)?"":v; }
+function normalizeDate(v){
+if(!v) return "";
+if(typeof v==="string" && v.includes("/")){
+let [d,m,y]=v.split("/");
+return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`;
+}
+return v;
+}
+function normalizeHeader(h){
+return (h||"").toString().trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+}
+
+// --- Funzione per invio VPU ---
+function invioVPU(p){
+
+    let destinatari = "email1@azienda.it,email2@azienda.it";
+
+    let subject = `Invio VPU - ${p.codice} ${p.applicativo}`;
+
+    let body = `Buongiorno,
+
+in base alla lettera d’ordine ${p.rifOrdine || ""} - ${p.descrizione || ""} si richiede la predisposizione del relativo VpU per l’evolutiva ${p.codice}.
+
+L’importo finale è di ${formatEuro(p.costo)} €, suddiviso come segue:
+
+L’evolutiva è stata rilasciata in esercizio il _____________.
+Il collaudo è stato effettuato dal collega ____________ della funzione _______________.
+
+Grazie.
+`;
+
+    if(body.length > 1500){
+        alert("Testo troppo lungo per email automatica. Verrà copiato negli appunti.");
+        
+        navigator.clipboard.writeText(body);
+        return;
+    }
+
+    let mailto = `mailto:${destinatari}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+    window.location.href = mailto;
+}
+
+// --- Funzioni per formattazione numeri europei ---
+function formatEuro(val){
+    if(val===undefined || val===null || val==="") return "";
+    let n = parseFloat(val);
+    if(isNaN(n)) return "";
+    return n.toLocaleString("it-IT", {minimumFractionDigits:2, maximumFractionDigits:2});
+}
+
+function parseEuro(val){
+    if(!val) return 0;
+    return parseFloat(val.replace(/\./g,"").replace(",","."));
+}
+
+// --- Gestione attività ---
+function addActivity(activity = {}) {
+
+    const div = document.createElement("div");
+
+    div.className = "activity-box";
+
+	div.innerHTML = `
+
+    <div class="activity-check" style="display:none;">✔</div>
+
+    <div class="activity-row">
+
+        <div class="activity-field delete-col">
+            <label>&nbsp;</label>
+            <button
+                type="button"
+                class="btn-delete-activity"
+                title="Elimina attività">
+                🗑️
+            </button>
+        </div>
+
+        <div class="activity-field">
+            <label>Descrizione</label>
+            <input
+                type="text"
+                class="desc"
+                value="${activity.descrizione || ""}">
+        </div>
+
+        <div class="activity-field">
+            <label>Data inizio</label>
+            <input
+                type="date"
+                class="inizio"
+                value="${activity.inizio || ""}">
+        </div>
+
+        <div class="activity-field">
+            <label>Data fine</label>
+            <input
+                type="date"
+                class="fine"
+                value="${activity.fine || ""}">
+        </div>
+
+        <div class="activity-field">
+            <label>Stato</label>
+            <select class="stato">
+                <option value="Da avviare">Da avviare</option>
+                <option value="In corso">In corso</option>
+                <option value="Completata">Completata</option>
+                <option value="Sospesa">Sospesa</option>
+            </select>
+        </div>
+
+    </div>
+
+    <div class="activity-note">
+        <label>Note attività</label>
+        <textarea class="note">${activity.note || ""}</textarea>
+    </div>
+`;
+
+
+    activities.appendChild(div);
+    toggleSortButtonVisibility();
+
+    const statoSelect =
+        div.querySelector(".stato");
+
+    const check =
+        div.querySelector(".activity-check");
+
+    // =========================
+    // ELIMINA ATTIVITÀ
+    // =========================
+
+
+	div.querySelector(".btn-delete-activity")
+    .addEventListener("click", () => {
+
+        showDeletePopup(() => {
+            div.remove();
+
+            // ✅ AGGIUNGI QUESTO
+            toggleSortButtonVisibility();
+        });
+});
+
+    // =========================
+    // STATO COMPLETATA
+    // =========================
+
+    statoSelect.value =
+       activity.stato || "Da avviare";
+
+    function aggiornaStato(){
+
+        if(statoSelect.value === "Completata"){
+
+            div.classList.add("completed");
+
+            check.style.display = "block";
+
+        } else {
+
+            div.classList.remove("completed");
+
+            check.style.display = "none";
+        }
+    }
+
+    statoSelect.addEventListener(
+        "change",
+        aggiornaStato
+    );
+
+    aggiornaStato();
+}
+
+// --- Submit form ---
+form.onsubmit = async function(e){
+e.preventDefault();
+let attivita=[];
+let boxes=document.querySelectorAll("#activities .activity-box");
+for(let div of boxes){
+let desc = div.querySelector(".desc").value.trim();
+let inizio = div.querySelector(".inizio").value;
+let fine = div.querySelector(".fine").value;
+let noteA = div.querySelector(".note").value;
+
+let stato =
+    div.querySelector(".stato").value;
+
+if(!desc && !inizio && !fine && !noteA) continue;
+
+let fileName = "";
+let fileData = "";
+
+
+attivita.push({
+    descrizione: desc,
+    inizio,
+    fine,
+    stato,
+    note: noteA
+});
+
+}
+
+let obj={
+id:Date.now(),
+applicativo:applicativo.value,
+projectManager:projectManager.value,
+codice:codice.value,
+rifOrdine: rifOrdine.value,
+costo: parseEuro(costo.value),
+fase:fase.value,
+inizio:dataInizio.value,
+fine:dataFine.value,
+sitoProgetto: sitoProgetto.value, 
+descrizione:descrizione.value,
+note:note.value,
+promemoria:promemoria.value,
+offerta:offerta.value,
+vpu:vpu.value,
+attivita
+};
+
+if(editId){
+let i=data.findIndex(x=>x.id===editId);
+if(i!==-1) data[i]={...obj,id:editId};
+}else{
+data.push(obj);
+}
+
+editId=null;
+form.reset();
+activities.innerHTML="";
+toggleSortButtonVisibility();
+clearForm();
+save();
+};
+
+function clearForm(){
+    applicativo.value = "";
+    projectManager.value = "";
+    codice.value = "";
+    rifOrdine.value = "";
+    costo.value = "";
+    fase.value = "Ideazione";
+    dataInizio.value = "";
+    dataFine.value = "";
+    sitoProgetto.value = "";
+    descrizione.value = "";
+    note.value = "";
+    promemoria.value = "NO";
+    offerta.value = "NO";
+    vpu.value = "NO";
+}
+
+// --- Salvataggio ---
+function save(){
+localStorage.setItem("projects",JSON.stringify(data));
+render();
+projectAccordion.open = false;
+}
+
+function setSort(field){
+    if(sortField === field){
+        sortDirection *= -1;
+    } else {
+        sortField = field;
+        sortDirection = 1;
+    }
+    render();
+}
+
+function toggleFaseMenu(){
+    document
+        .getElementById("filterFase")
+        .classList.toggle("show");
+}
+
+function selectAllFasi(){
+    document
+        .querySelectorAll('#filterFase input')
+        .forEach(cb => cb.checked = true);
+
+    render();
+}
+
+function clearAllFasi(){
+    document
+        .querySelectorAll('#filterFase input')
+        .forEach(cb => cb.checked = false);
+
+    render();
+}
+
+function updateFaseCounts(){
+
+    let counts = {
+        Ideazione:0,
+        Avvio:0,
+        Analisi:0,
+		Sviluppo:0,
+        Collaudo:0,
+        Certificazione:0,
+        Esercizio:0
+    };
+
+    data.forEach(p=>{
+        if(counts[p.fase] !== undefined){
+            counts[p.fase]++;
+        }
+    });
+
+    Object.keys(counts).forEach(fase=>{
+        let el = document.getElementById("count-" + fase);
+        if(el){
+            el.innerText = `(${counts[fase]})`;
+        }
+    });
+}
+
+// --- Rendering tabella ---
+function render(){
+let list=document.getElementById("list");
+list.innerHTML="";
+let search=(searchText.value||"").toLowerCase();
+let selectedFasi = [
+    ...document.querySelectorAll('#filterFase input:checked')
+].map(cb => cb.value);
+
+let filtered=data.filter(p=>{
+
+    // Se ci sono checkbox selezionate,
+    // mostra solo le fasi selezionate
+    if(selectedFasi.length > 0 && !selectedFasi.includes(p.fase)){
+        return false;
+    }
+let txt=`${p.codice} ${p.applicativo} ${p.projectManager||""} ${p.fase} ${p.descrizione} ${p.note} ${p.rifOrdine} ${p.costo}`;
+p.attivita.forEach(a=>txt+=` ${a.descrizione} ${a.note}`);
+return txt.toLowerCase().includes(search);
+});
+if(sortField){
+    filtered.sort((a,b)=>{
+        let valA, valB;
+
+        switch(sortField){
+            case "periodo":
+                valA = a.inizio || "";
+                valB = b.inizio || "";
+                break;
+            case "attivita":
+                valA = a.attivita.length;
+                valB = b.attivita.length;
+                break;
+			case "durata":
+				valA = calcolaDurata(a);
+				valB = calcolaDurata(b);
+				break;
+            default:
+                valA = a[sortField] ?? "";
+                valB = b[sortField] ?? "";
+        }
+
+        if(sortField === "costo"){
+            return (valA - valB) * sortDirection;
+        }
+
+        return valA.toString().localeCompare(valB.toString()) * sortDirection;
+    });
+}
+updateChart(filtered);
+updateCostiChart(filtered);
+let totaleCosto = 0;
+filtered.forEach(p=>{
+totaleCosto += Number(p.costo) || 0;
+let tr=document.createElement("tr");
+tr.onclick=()=>openModal(p);
+if(p.fase==="Esercizio") tr.classList.add("fase-esercizio");
+tr.innerHTML=`
+<td>${p.codice}</td>
+<td>${p.applicativo}</td>
+<td>${p.projectManager||""}</td>
+<td>${p.fase}</td>
+<td>${formatDateIT(p.inizio)} / ${formatDateIT(p.fine)}</td>
+<td>${p.descrizione}</td>
+<td>${p.rifOrdine||""}</td>
+<td>${formatEuro(p.costo)}</td>
+<td>${p.promemoria}</td>
+<td>${p.offerta}</td>
+<td>${p.vpu}</td>
+<td>
+    <button
+        class="action-btn edit-btn"
+        title="Modifica progetto"
+        onclick="event.stopPropagation();edit(${p.id})">
+        ✏️
+    </button>
+
+    <button
+        class="action-btn delete-btn"
+        title="Elimina progetto"
+        onclick="event.stopPropagation();del(${p.id})">
+        🗑️
+    </button>
+</td>`;
+list.appendChild(tr);
+});
+let trTot = document.createElement("tr");
+trTot.style.fontWeight = "bold";
+trTot.style.background = "#f8f9fa";
+
+trTot.innerHTML = `
+<td colspan="7" style="text-align:right;">Totale</td>
+<td style="white-space: nowrap;">${formatEuro(totaleCosto)}&nbsp;€</td>
+<td colspan="4"></td>
+`;
+
+list.appendChild(trTot);
+document.getElementById("count").innerText =
+    "Totale righe: " + filtered.length;
+	updateFaseCounts();
+}
+
+// --- Modal ---
+function openModal(p){
+    currentProject = p;
+    modal.style.display = "flex";
+
+    // Tag di stato colorato per SI/NO
+    const renderTag = (val) => {
+        const isSi = String(val || "").toUpperCase() === "SI";
+        return `<span class="status-badge ${isSi ? 'status-yes' : 'status-no'}">${val || 'NO'}</span>`;
+    };
+
+    // Generazione tabella delle attività orizzontale
+    let attivitaHtml = `<p style="color:#a0aec0; font-style:italic; margin:0; font-size:0.85em;">Nessuna attività presente.</p>`;
+    const attivitaOrdinate = sortAttivitaByInizio(p.attivita);
+
+    if (attivitaOrdinate.length > 0) {
+        attivitaHtml = `
+        <table class="popup-activities-table">
+            <thead>
+                <tr>
+                    <th style="width:18%;">Stato</th>
+                    <th style="width:32%;">Descrizione</th>
+                    <th style="width:25%;">Periodo</th>
+                    <th style="width:25%;">Note</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${attivitaOrdinate.map(a => `
+                    <tr>
+                        <td>
+                            <b>${a.stato === "Completata" ? "✔️ Completata" : (a.stato || "In corso")}</b>
+                        </td>
+                        <td>${a.descrizione || '-'}</td>
+                        <td>${formatDateIT(a.inizio)} ${a.fine ? '→ ' + formatDateIT(a.fine) : ''}</td>
+                        <td>${a.note || '-'}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>`;
+    }
+
+    // Inserimento del nuovo layout HTML strutturato
+    modalContent.innerHTML = `
+    <div class="modal-body-custom">
+        <!-- Header con Titolo Progetto e Fase -->
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:10px;">
+            <div class="modal-title-custom">
+            <span>📌 ${p.codice}</span>
+                <span class="badge badge-${(p.fase || '').toLowerCase()}">${p.fase}</span>
+            </div>
+            <div style="font-size:0.9em; font-weight:bold; color:#718096; text-align:right;">
+    <div>
+        App:
+        <span style="color:#2d3748;">
+            ${p.applicativo || 'N/D'}
+        </span>
+    </div>
+
+    <div style="margin-top:5px;">
+        Project Manager:
+        <span style="color:#2d3748;">
+            ${p.projectManager || 'Non assegnato'}
+        </span>
+    </div>
+</div>
+        </div>
+
+        <!-- Griglia KPI -->
+        <div class="kpi-grid">
+            <div class="kpi-card">
+                <div class="kpi-label">Costo Totale</div>
+                <div class="kpi-value" style="color:var(--primary);">${formatEuro(p.costo)} €</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Periodo</div>
+                <div class="kpi-value" style="font-size:0.8em;">
+                    ${formatDateIT(p.inizio) || '-'}<br>${formatDateIT(p.fine) || '-'}
+                </div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Rif. Ordine</div>
+                <div class="kpi-value" style="font-size:0.85em;">${p.rifOrdine || '-'}</div>
+            </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Attività</div>
+                <div class="kpi-value">${p.attivita ? p.attivita.length : 0}</div>
+            </div>
+         </div>
+
+        <!-- Barra degli Stati (Promemoria, Offerta, VPU) -->
+        <div class="status-bar">
+            <b>Stati:</b>
+            <div>Promemoria: ${renderTag(p.promemoria)}</div>
+            <div>Offerta: ${renderTag(p.offerta)}</div>
+            <div>VPU: ${renderTag(p.vpu)} 
+                ${p.vpu === "NO" ? `
+                    <button class="btn btn-export" style="padding:2px 6px; font-size:0.75em; margin-left:4px;"
+                      onclick="event.stopPropagation(); invioVPUById(${p.id})">
+                      📧 Invio VPU
+                    </button>` : ''}
+            </div>
+        </div>
+
+        <!-- Descrizione Progetto -->
+        <div class="detail-card">
+            <div class="detail-card-title">📝 Descrizione</div>
+            <div class="detail-card-content">${p.descrizione || 'Nessuna descrizione presente.'}</div>
+        </div>
+
+        <!-- Sito di Progetto e Note (se presenti) -->
+        ${p.sitoProgetto ? `
+        <div class="detail-card">
+            <div class="detail-card-title">🔗 Sito Progetto</div>
+            <div class="detail-card-content">
+                <a href="${p.sitoProgetto.startsWith('http') ? p.sitoProgetto : 'https://' + p.sitoProgetto}" target="_blank" style="color:var(--accent); font-weight:bold; text-decoration:none;">
+                    ${p.sitoProgetto} ↗
+                </a>
+            </div>
+        </div>` : ''}
+
+        ${p.note ? `
+        <div class="detail-card">
+            <div class="detail-card-title">💬 Note</div>
+            <div class="detail-card-content">${p.note}</div>
+        </div>` : ''}
+
+        <!-- Tabella Attività -->
+        <div class="detail-card">
+            <div class="detail-card-title">⚡ Attività Collegate (${p.attivita ? p.attivita.length : 0})</div>
+            ${attivitaHtml}
+        </div>
+    </div>`;
+}
+
+function closeModal(){ modal.style.display="none"; }
+
+// --- Edit progetto ---
+function edit(id){
+let p=data.find(x=>x.id===id);
+applicativo.value=p.applicativo||"";
+projectManager.value=p.projectManager||"";
+codice.value=p.codice||"";
+rifOrdine.value=p.rifOrdine||"";
+costo.value = formatEuro(p.costo);
+fase.value=p.fase||"";
+dataInizio.value=normalizeDate(p.inizio);
+dataFine.value=normalizeDate(p.fine);
+descrizione.value=p.descrizione||"";
+sitoProgetto.value = p.sitoProgetto || "";
+note.value=p.note||"";
+promemoria.value=p.promemoria||"NO";
+offerta.value=p.offerta||"NO";
+vpu.value =p.vpu||"NO";
+activities.innerHTML="";
+activities.innerHTML = "";
+const attivitaOrdinate = sortAttivitaByInizio(p.attivita);
+attivitaOrdinate.forEach(a => addActivity(a));
+toggleSortButtonVisibility();
+let boxes = document.querySelectorAll(".activity-box");
+attivitaOrdinate.forEach((a,i)=>{
+boxes[i].querySelector(".stato").value =a.stato || "Da avviare";
+boxes[i].querySelector(".desc").value=a.descrizione||"";
+boxes[i].querySelector(".inizio").value=normalizeDate(a.inizio);
+boxes[i].querySelector(".fine").value=normalizeDate(a.fine);
+boxes[i].querySelector(".note").value=a.note||"";
+boxes[i].dataset.fileName=a.fileName||"";
+boxes[i].dataset.fileData=a.fileData||"";
+});
+editId = id;
+projectAccordion.open = true;
+
+window.scrollTo({
+    top: 0,
+    behavior: "smooth"
+});
+
+// Focus automatico sul primo campo
+applicativo.focus();
+applicativo.select();
+}
+
+
+// --- Elimina progetto ---
+function del(id){
+if(confirm("Eliminare?")){
+data=data.filter(x=>x.id!==id);
+save();
+}
+}
+
+function resetFiltri(){
+searchText.value="";
+document
+  .querySelectorAll('#filterFase input')
+  .forEach(cb => cb.checked = false);
+render();
+}
+
+function invioVPUById(id){
+    let p = data.find(x => x.id === id);
+    if(!p) return;
+
+    invioVPU(p);
+}
+
+function safeText(value){
+    if(value === undefined || value === null){
+        return "";
+    }
+
+    return String(value).trim();
+}
+function csvSafe(value){
+    if(value === undefined || value === null) return "";
+
+    return `"${value
+        .toString()
+        .replace(/"/g, '""')
+        .replace(/\r?\n/g, ' ')}"`;
+}
+
+// --- Export CSV ---
+function exportCSV(){
+
+let csv =
+"Codice;Applicativo;Project Manager;Fase;Periodo Inizio;Periodo Fine;Sito Progetto;Descrizione;Riferimento Ordine;Costo;Note;Promemoria;Offerta;VPU;Attività Descrizione;Attività Inizio;Attività Fine;Attività Stato;Attività Note\n";
+
+data.forEach(p=>{
+
+    if(p.attivita.length){
+
+        p.attivita.forEach(a=>{
+
+            csv += [
+                csvSafe(p.codice),
+                csvSafe(p.applicativo),
+                csvSafe(p.projectManager),
+                csvSafe(p.fase),
+                csvSafe(p.inizio),
+                csvSafe(p.fine),
+                csvSafe(p.sitoProgetto),
+                csvSafe(p.descrizione),
+                csvSafe(p.rifOrdine),
+                csvSafe(formatEuro(p.costo)),
+                csvSafe(p.note),
+                csvSafe(p.promemoria),
+                csvSafe(p.offerta),
+                csvSafe(p.vpu),
+                csvSafe(a.descrizione),
+                csvSafe(a.inizio),
+                csvSafe(a.fine),
+                csvSafe(a.stato),
+                csvSafe(a.note)
+            ].join(";") + "\n";
+
+        });
+
+    } else {
+
+        csv += [
+            csvSafe(p.codice),
+            csvSafe(p.applicativo),
+            csvSafe(p.projectManager),
+            csvSafe(p.fase),
+            csvSafe(p.inizio),
+            csvSafe(p.fine),
+            csvSafe(p.sitoProgetto),
+            csvSafe(p.descrizione),
+            csvSafe(p.rifOrdine),
+            csvSafe(formatEuro(p.costo)),
+            csvSafe(p.note),
+            csvSafe(p.promemoria),
+            csvSafe(p.offerta),
+            csvSafe(p.vpu),
+            "",
+            "",
+            "",
+            "",
+            ""
+     
+        ].join(";") + "\n";
+    }
+});
+
+let blob = new Blob(["\uFEFF" + csv],{
+    type:"text/csv;charset=utf-8;"
+});
+
+let a = document.createElement("a");
+
+a.href = URL.createObjectURL(blob);
+
+let now = new Date();
+
+let giorno = String(now.getDate()).padStart(2,'0');
+let mese = String(now.getMonth()+1).padStart(2,'0');
+let anno = now.getFullYear();
+
+let ore = String(now.getHours()).padStart(2,'0');
+let minuti = String(now.getMinutes()).padStart(2,'0');
+
+a.download =
+`progetti_${giorno}-${mese}-${anno}_${ore}-${minuti}.csv`;
+
+a.click();
+}
+function parseCSV(text) {
+
+    const rows = [];
+    const lines = text.split(/\r?\n/);
+
+    for (let line of lines) {
+
+        if (!line.trim()) continue;
+
+        const result = [];
+        let current = "";
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+
+            const char = line[i];
+            const next = line[i + 1];
+
+            if (char === '"') {
+
+                // doppie virgolette escaped
+                if (inQuotes && next === '"') {
+                    current += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+
+            } else if (char === ";" && !inQuotes) {
+
+                result.push(current);
+                current = "";
+
+            } else {
+
+                current += char;
+            }
+        }
+
+        result.push(current);
+
+        rows.push(result.map(v => v.trim()));
+    }
+
+    return rows;
+}
+
+function formatDateEU(dateStr) {
+    if (dateStr === undefined || dateStr === null || String(dateStr).trim() === "") {
+        return null;
+    }
+
+    const d = new Date(dateStr);
+
+    if (isNaN(d)) {
+        return null;
+    }
+
+    const giorno = String(d.getDate()).padStart(2, '0');
+    const mese = String(d.getMonth() + 1).padStart(2, '0');
+    const anno = d.getFullYear();
+
+    return `${giorno}/${mese}/${anno}`;
+}
+
+// --- Connettore Liste SharePoint ---
+function exportSharePoint() {
+
+    const progetti = data.map(p => ({
+        Codice: p.codice,
+        Descrizione: p.descrizione,
+        "Periodo Inizio": formatDateEU(p.inizio) || "",
+        "Periodo Fine": formatDateEU(p.fine) || "",
+        Applicativo: p.applicativo,
+        "Project Manager": p.projectManager || "",
+        Fase: p.fase,
+        "Riferimento Ordine": p.rifOrdine,
+        Costo: p.costo,
+        "Sito Progetto": p.sitoProgetto,
+        Note: p.note,
+        Promemoria: p.promemoria,
+        Offerta: p.offerta,
+        VPU: p.vpu
+    }));
+
+    const attivita = [];
+
+    data.forEach(progetto => {
+
+        (progetto.attivita || []).forEach(a => {
+
+            attivita.push({
+                Codice: progetto.codice,
+                Titolo: a.descrizione,
+                "Data inizio": formatDateEU(a.inizio) || "",
+                "Data fine": formatDateEU(a.fine) || "", 
+                Stato: a.stato,
+                Note: a.note
+            });
+
+        });
+
+    });
+
+    const wb = XLSX.utils.book_new();
+
+    const wsProgetti =
+        XLSX.utils.json_to_sheet(progetti);
+
+    const wsAttivita =
+        XLSX.utils.json_to_sheet(attivita);
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        wsProgetti,
+        "Progetti"
+    );
+
+    XLSX.utils.book_append_sheet(
+        wb,
+        wsAttivita,
+        "Attivita"
+    );
+
+    XLSX.writeFile(
+        wb,
+        "Connettore_Liste_SharePoint.xlsx"
+    );
+}
+
+// --- Import CSV/XLSX ---
+function importData(){
+
+    let file = document.getElementById("importFile").files[0];
+
+    if(!file){
+        alert("Seleziona file");
+        return;
+    }
+
+    let reader = new FileReader();
+
+    reader.onload = function(e){
+
+        let rows = [];
+
+        try {
+
+            // CSV
+            if(file.name.toLowerCase().endsWith(".csv")){
+
+                rows = parseCSV(e.target.result);
+
+            } else {
+
+                // XLSX
+                let wb = XLSX.read(
+                    e.target.result,
+                    { type:"binary" }
+                );
+
+                let sheet =
+                    wb.Sheets[wb.SheetNames[0]];
+
+                rows = XLSX.utils.sheet_to_json(
+                    sheet,
+                    {
+                        header:1,
+                        defval:""
+                    }
+                );
+            }
+
+            if(!rows.length){
+                alert("File vuoto o non valido");
+                return;
+            }
+
+            let headers = rows[0];
+
+            let map = {};
+
+            for(let i=1; i<rows.length; i++){
+
+                let r = rows[i];
+
+                if(!r || !r.length) continue;
+
+                let obj = {};
+
+                headers.forEach((h,idx)=>{
+
+                    obj[
+                        normalizeHeader(h)
+                    ] = safe(r[idx]);
+
+                });
+
+                let codice = obj["codice"];
+
+                if(!codice) continue;
+
+                if(!map[codice]){
+
+                    map[codice] = {
+
+                        id: Date.now() + Math.random(),
+
+                        codice,
+
+                        applicativo:
+    obj["applicativo"] || "",
+projectManager:
+    obj["project manager"] || "",
+fase:
+    obj["fase"] || "Ideazione",
+
+                        inizio:
+                            normalizeDate(
+                                obj["periodo inizio"]
+                                || obj["data inizio"]
+                            ),
+
+                        fine:
+                            normalizeDate(
+                                obj["periodo fine"]
+                                || obj["data fine"]
+                            ),
+
+                        sitoProgetto:
+                            obj["sitoprogetto"]
+                            || obj["sito progetto"]
+                            || obj["sito"]
+                            || "",
+
+                        descrizione:
+                            obj["descrizione"] || "",
+
+                        note:
+                            obj["note"] || "",
+
+                        rifOrdine:
+                            obj["rifordine"]
+                            || obj["riferimento ordine"]
+                            || "",
+
+                        costo:
+                            obj["costo"]
+                            ? parseEuro(
+                                obj["costo"].toString()
+                              )
+                            : 0,
+
+                        promemoria:
+                            obj["promemoria"] || "NO",
+
+                        offerta:
+                            obj["offerta"] || "NO",
+
+                        vpu:
+                            obj["vpu"] || "NO",
+
+                        attivita:[]
+                    };
+                }
+
+                if(obj["attivita descrizione"]){
+
+                    map[codice].attivita.push({
+
+                        descrizione:
+                            obj["attivita descrizione"],
+
+                        inizio:
+                            normalizeDate(
+                                obj["attivita inizio"]
+                            ),
+
+                        fine:
+                            normalizeDate(
+                                obj["attivita fine"]
+                            ),
+
+                        stato:
+                            obj["attivita stato"]
+                            || "Da avviare",
+
+                        note:
+                            obj["attivita note"] || "",
+
+                        fileName:"",
+                        fileData:""
+                    });
+                }
+            }
+
+            // QUI aggiorni la variabile globale
+            data = Object.values(map);
+
+            save();
+
+            render();
+
+            alert(
+                "Import completato: "
+                + data.length +
+                " progetti caricati"
+            );
+
+        } catch(err){
+
+            console.error(err);
+
+            alert(
+                "Errore durante import:\n" +
+                err.message
+            );
+        }
+    };
+
+    if(file.name.toLowerCase().endsWith(".csv")){
+
+        reader.readAsText(file, "UTF-8");
+
+    } else {
+
+        reader.readAsBinaryString(file);
+    }
+}
+
+function updateChart(filtered){
+
+    let counts = {
+        Ideazione:0,
+        Avvio:0,
+		Analisi:0,
+        Sviluppo:0,
+        Collaudo:0,
+        Certificazione:0,
+        Esercizio:0
+    };
+
+    filtered.forEach(p=>{
+        if(counts[p.fase] !== undefined){
+            counts[p.fase]++;
+        }
+    });
+
+let labels = [];
+let values = [];
+let bgColors = [];
+
+Object.entries(counts).forEach(([fase, val]) => {
+
+    if (val > 0) {
+
+        labels.push(fase);
+        values.push(val);
+
+        bgColors.push(faseColors[fase]); // 👈 colore legato alla fase
+    }
+});
+
+    let ctx = document.getElementById("faseChart");
+
+    if(faseChart){
+        faseChart.destroy();
+    }
+
+   faseChart = new Chart(ctx,{
+
+    type:"doughnut",
+
+    plugins:[centerTextPlugin],
+
+    data:{
+        labels:labels,
+        datasets:[{
+            data:values,
+            backgroundColor:bgColors,
+            borderWidth:1
+        }]
+    },
+
+    options:{
+        responsive:true,
+        devicePixelRatio:4,
+        cutout:"55%",
+        plugins:{
+
+            centerText:{
+                text: filtered.length.toString()
+            },
+
+            legend:{
+                display:true,
+                position:"bottom"
+            },
+
+            title:{
+                display:true,
+                text:"Distribuzione Progetti per Fase"
+            }
+        }
+    }
+}); 
+}
+
+function updateCostiChart(filtered){
+
+    let costi = {
+        Ideazione:0,
+        Avvio:0,
+		Analisi:0,
+        Sviluppo:0,
+        Collaudo:0,
+        Certificazione:0,
+        Esercizio:0
+    };
+
+    filtered.forEach(p=>{
+        if(costi[p.fase] !== undefined){
+            costi[p.fase] += Number(p.costo) || 0;
+        }
+    });
+
+    let labels = [];
+    let values = [];
+
+    let colors = [
+        "#7f8c8d",
+        "#2980b9",
+		"#f7dc6f",
+        "#f39c12",
+        "#8e44ad",
+        "#aed6f1",
+        "#27ae60"
+    ];
+
+    let bgColors = [];
+
+    Object.entries(costi).forEach(([fase,val],i)=>{
+        if(val > 0){
+            labels.push(fase);
+            values.push(val);
+            bgColors.push(colors[i]);
+        }
+    });
+
+    let ctx = document.getElementById("costiChart");
+
+    if(costiChart){
+        costiChart.destroy();
+    }
+
+costiChart = new Chart(ctx,{
+
+    type:"doughnut",
+
+    plugins:[centerTextPlugin],
+
+    data:{
+        labels:labels,
+        datasets:[{
+            data:values,
+            backgroundColor:bgColors,
+            borderWidth:1
+        }]
+    },
+
+    options:{
+        responsive:true,
+        devicePixelRatio:4,
+        cutout:"55%",
+        plugins:{
+
+            centerText:{
+                text:
+                    formatEuro(
+                        values.reduce((a,b)=>a+b,0)
+                    ) + " €"
+            },
+
+            legend:{
+                display:true,
+                position:"bottom"
+            },
+
+            title:{
+                display:true,
+                text:"Costi per Fase"
+            },
+
+            tooltip:{
+                callbacks:{
+                    label:function(context){
+
+                        let value = context.raw || 0;
+
+                        return context.label + ": " +
+                            value.toLocaleString(
+                                "it-IT",
+                                {
+                                    minimumFractionDigits:2,
+                                    maximumFractionDigits:2
+                                }
+                            ) + " €";
+                    }
+                }
+            }
+        }
+    }
+});
+}
+
+async function exportPDF() {
+
+    if (!currentProject) {
+        alert("Nessun progetto selezionato");
+        return;
+    }
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert(
+            "jsPDF non caricato. " +
+            "Verifica la connessione e ricarica la pagina."
+        );
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+
+    const pdf = new jsPDF(
+        "p",
+        "mm",
+        "a4"
+    );
+
+    const p = currentProject;
+
+    const W =
+        pdf.internal.pageSize.getWidth();
+
+    const H =
+        pdf.internal.pageSize.getHeight();
+
+    const M = 14;
+    const CW = W - M * 2;
+    const BOTTOM = H - 18;
+
+    let y = 14;
+
+    const C = {
+        primary: [44, 62, 80],
+        accent: [52, 152, 219],
+        text: [45, 55, 72],
+        muted: [113, 128, 150],
+        border: [226, 232, 240],
+        light: [248, 250, 252],
+        status: [237, 242, 247],
+        yesBg: [212, 237, 218],
+        yesText: [21, 87, 36],
+        noBg: [248, 215, 218],
+        noText: [114, 28, 36]
+    };
+
+const phase = {
+    Ideazione: [127, 140, 141],
+    Avvio: [41, 128, 185],
+    Analisi: [247, 220, 111],
+    Sviluppo: [243, 156, 18],
+    Collaudo: [142, 68, 173],
+    Certificazione: [174, 214, 241],
+    Esercizio: [39, 174, 96]
+};
+
+    const clean = (
+        value,
+        fallback = "-"
+    ) => {
+
+        const text =
+            value === undefined ||
+            value === null
+                ? ""
+                : String(value).trim();
+
+        return text || fallback;
+    };
+
+    const fill = color => {
+        pdf.setFillColor(
+            color[0],
+            color[1],
+            color[2]
+        );
+    };
+
+    const draw = color => {
+        pdf.setDrawColor(
+            color[0],
+            color[1],
+            color[2]
+        );
+    };
+
+    const textColor = color => {
+        pdf.setTextColor(
+            color[0],
+            color[1],
+            color[2]
+        );
+    };
+
+    function pageIf(
+        needed,
+        showTitle = true
+    ) {
+
+        if (y + needed <= BOTTOM) {
+            return;
+        }
+
+        pdf.addPage();
+        y = 14;
+
+        if (showTitle) {
+
+            pdf.setFont(
+                "helvetica",
+                "bold"
+            );
+
+            pdf.setFontSize(9);
+            textColor(C.muted);
+
+            pdf.text(
+                `Dettaglio Progetto - ${clean(p.codice)}`,
+                M,
+                y
+            );
+
+            draw(C.border);
+
+            pdf.line(
+                M,
+                y + 3,
+                W - M,
+                y + 3
+            );
+
+            y += 10;
+        }
+    }
+
+    function badge(
+        text,
+        x,
+        top,
+        background,
+        foreground = [255, 255, 255]
+    ) {
+
+        pdf.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        pdf.setFontSize(8);
+
+        const width = Math.max(
+            19,
+            pdf.getTextWidth(text) + 8
+        );
+
+        fill(background);
+
+        pdf.roundedRect(
+            x,
+            top,
+            width,
+            7,
+            3.5,
+            3.5,
+            "F"
+        );
+
+        textColor(foreground);
+
+        pdf.text(
+            text,
+            x + width / 2,
+            top + 4.7,
+            {
+                align: "center"
+            }
+        );
+
+        return width;
+    }
+
+    function kpi(
+        x,
+        top,
+        width,
+        label,
+        value,
+        valueSize = 9.5
+    ) {
+
+        fill(C.light);
+        draw(C.border);
+
+        pdf.roundedRect(
+            x,
+            top,
+            width,
+            22,
+            2,
+            2,
+            "FD"
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        pdf.setFontSize(7);
+        textColor(C.muted);
+
+        pdf.text(
+            label.toUpperCase(),
+            x + width / 2,
+            top + 6,
+            {
+                align: "center"
+            }
+        );
+
+        pdf.setFontSize(valueSize);
+        textColor(C.text);
+
+        const lines =
+            pdf.splitTextToSize(
+                clean(value),
+                width - 7
+            ).slice(0, 2);
+
+        pdf.text(
+            lines,
+            x + width / 2,
+            top + 13,
+            {
+                align: "center",
+                lineHeightFactor: 1.05
+            }
+        );
+    }
+
+    function card(
+        title,
+        content,
+        url = null
+    ) {
+
+        pdf.setFont(
+            "helvetica",
+            "normal"
+        );
+
+        pdf.setFontSize(9.5);
+
+        const lines =
+            pdf.splitTextToSize(
+                clean(content),
+                CW - 12
+            );
+
+        const height = Math.max(
+            23,
+            14 + lines.length * 4.5
+        );
+
+        pageIf(height + 5);
+
+        fill([255, 255, 255]);
+        draw(C.border);
+
+        pdf.roundedRect(
+            M,
+            y,
+            CW,
+            height,
+            2,
+            2,
+            "FD"
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        pdf.setFontSize(7.5);
+        textColor([74, 85, 104]);
+
+        pdf.text(
+            title.toUpperCase(),
+            M + 6,
+            y + 7
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "normal"
+        );
+
+        pdf.setFontSize(9.5);
+
+        textColor(
+            url
+                ? C.accent
+                : C.text
+        );
+
+        if (
+            url &&
+            lines.length === 1
+        ) {
+
+            pdf.textWithLink(
+                lines[0],
+                M + 6,
+                y + 14,
+                {
+                    url: url
+                }
+            );
+
+        } else {
+
+            pdf.text(
+                lines,
+                M + 6,
+                y + 14,
+                {
+                    lineHeightFactor: 1.15
+                }
+            );
+        }
+
+        y += height + 5;
+    }
+
+    function status(
+        label,
+        value,
+        x,
+        top
+    ) {
+
+        const yes =
+            clean(
+                value,
+                "NO"
+            ).toUpperCase() === "SI";
+
+        pdf.setFont(
+            "helvetica",
+            "normal"
+        );
+
+        pdf.setFontSize(8.5);
+        textColor(C.text);
+
+        pdf.text(
+            label + ":",
+            x,
+            top + 5
+        );
+
+        const labelWidth =
+            pdf.getTextWidth(
+                label + ":"
+            ) + 2;
+
+        badge(
+            yes ? "SI" : "NO",
+            x + labelWidth,
+            top,
+            yes
+                ? C.yesBg
+                : C.noBg,
+            yes
+                ? C.yesText
+                : C.noText
+        );
+    }
+
+    /*
+     * Intestazione PDF
+     */
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(18);
+    textColor(C.primary);
+
+    pdf.text(
+        "Dettaglio Progetto",
+        M,
+        y + 5
+    );
+
+    const stamp =
+        new Date().toLocaleString(
+            "it-IT",
+            {
+                day: "2-digit",
+                month: "2-digit",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit"
+            }
+        );
+
+    pdf.setFont(
+        "helvetica",
+        "normal"
+    );
+
+    pdf.setFontSize(8);
+    textColor(C.muted);
+
+    pdf.text(
+        "Esportato il " + stamp,
+        W - M,
+        y + 5,
+        {
+            align: "right"
+        }
+    );
+
+    draw(C.accent);
+    pdf.setLineWidth(0.7);
+
+    pdf.line(
+        M,
+        y + 9,
+        W - M,
+        y + 9
+    );
+
+    y += 17;
+
+    /*
+     * Codice, fase e applicativo
+     */
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(14);
+    textColor(C.primary);
+
+    pdf.text(
+        clean(p.codice),
+        M,
+        y + 5
+    );
+
+    const badgeX =
+        M +
+        Math.min(
+            85,
+            pdf.getTextWidth(
+                clean(p.codice)
+            ) + 5
+        );
+
+    badge(
+        clean(p.fase),
+        badgeX,
+        y,
+        phase[p.fase] || C.primary,
+        p.fase === "Certificazione"
+            ? C.text
+            : [255, 255, 255]
+    );
+
+    pdf.setFontSize(9);
+    textColor(C.muted);
+
+    pdf.text(
+        "App:",
+        W - M - 65,
+        y + 5
+    );
+
+    textColor(C.text);
+
+    pdf.text(
+        clean(
+            p.applicativo,
+            "N/D"
+        ),
+        W - M,
+        y + 5,
+        {
+            align: "right"
+        }
+    );
+
+    y += 13;
+
+    /*
+     * Schede KPI
+     */
+
+    const gap = 4;
+
+    const kpiWidth =
+        (CW - gap * 3) / 4;
+
+kpi(
+    M,
+    y,
+    kpiWidth,
+    "Costo Totale",
+    formatEuro(p.costo) + " EUR"
+);
+
+kpi(
+    M + kpiWidth + gap,
+    y,
+    kpiWidth,
+    "Periodo",
+    (formatDateIT(p.inizio) || "-") +
+    "\n" +
+    (formatDateIT(p.fine) || "-"),
+    8
+);
+
+kpi(
+    M + (kpiWidth + gap) * 2,
+    y,
+    kpiWidth,
+    "Rif. Ordine",
+    clean(p.rifOrdine),
+    8.5
+);
+
+kpi(
+    M + (kpiWidth + gap) * 3,
+    y,
+    kpiWidth,
+    "Attivita",
+    String(
+        (p.attivita || []).length
+    )
+);
+
+y += 27;
+
+kpi(
+    M,
+    y,
+    CW,
+    "Project Manager",
+    clean(
+        p.projectManager,
+        "Non assegnato"
+    ),
+    10
+);
+
+y += 27;
+
+    /*
+     * Barra degli stati
+     */
+
+    fill(C.status);
+
+    pdf.roundedRect(
+        M,
+        y,
+        CW,
+        13,
+        2,
+        2,
+        "F"
+    );
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(8.5);
+    textColor(C.text);
+
+    pdf.text(
+        "Stati:",
+        M + 5,
+        y + 8
+    );
+
+    status(
+        "Promemoria",
+        p.promemoria,
+        M + 22,
+        y + 3
+    );
+
+    status(
+        "Offerta",
+        p.offerta,
+        M + 83,
+        y + 3
+    );
+
+    status(
+        "VPU",
+        p.vpu,
+        M + 132,
+        y + 3
+    );
+
+    y += 18;
+
+    /*
+     * Sezioni informative
+     */
+
+    card(
+        "Descrizione",
+        clean(
+            p.descrizione,
+            "Nessuna descrizione presente."
+        )
+    );
+
+    if (p.sitoProgetto) {
+
+        const url =
+            String(
+                p.sitoProgetto
+            ).startsWith("http")
+                ? String(p.sitoProgetto)
+                : "https://" +
+                  p.sitoProgetto;
+
+        card(
+            "Sito Progetto",
+            p.sitoProgetto,
+            url
+        );
+    }
+
+    if (p.note) {
+        card(
+            "Note",
+            p.note
+        );
+    }
+
+    /*
+     * Attività
+     */
+
+    pageIf(27);
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(8);
+    textColor([74, 85, 104]);
+
+    const activityList =
+        sortAttivitaByInizio(
+            p.attivita || []
+        );
+
+    pdf.text(
+        `ATTIVITA COLLEGATE (${activityList.length})`,
+        M,
+        y + 2
+    );
+
+    y += 7;
+
+    function tableHeader() {
+
+        fill(C.light);
+        draw(C.border);
+
+        pdf.rect(
+            M,
+            y,
+            CW,
+            9,
+            "FD"
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        pdf.setFontSize(7.5);
+        textColor([74, 85, 104]);
+
+        pdf.text(
+            "STATO",
+            M + 3,
+            y + 5.7
+        );
+
+        pdf.text(
+            "DESCRIZIONE",
+            M + 36,
+            y + 5.7
+        );
+
+        pdf.text(
+            "PERIODO",
+            M + 92,
+            y + 5.7
+        );
+
+        pdf.text(
+            "NOTE",
+            M + 137,
+            y + 5.7
+        );
+
+        y += 9;
+    }
+
+    if (activityList.length === 0) {
+
+        fill([255, 255, 255]);
+        draw(C.border);
+
+        pdf.roundedRect(
+            M,
+            y,
+            CW,
+            17,
+            2,
+            2,
+            "FD"
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "italic"
+        );
+
+        pdf.setFontSize(9);
+        textColor(C.muted);
+
+        pdf.text(
+            "Nessuna attivita presente.",
+            M + 6,
+            y + 10
+        );
+
+        y += 20;
+
+    } else {
+
+        tableHeader();
+
+        activityList.forEach(
+            (activity, index) => {
+
+                pdf.setFont(
+                    "helvetica",
+                    "normal"
+                );
+
+                pdf.setFontSize(8.5);
+
+                const descriptionLines =
+                    pdf.splitTextToSize(
+                        clean(
+                            activity.descrizione
+                        ),
+                        52
+                    );
+
+                const noteLines =
+                    pdf.splitTextToSize(
+                        clean(
+                            activity.note
+                        ),
+                        42
+                    );
+
+                const period =
+                    (
+                        formatDateIT(
+                            activity.inizio
+                        ) || "-"
+                    ) +
+                    (
+                        activity.fine
+                            ? " - " +
+                              formatDateIT(
+                                  activity.fine
+                              )
+                            : ""
+                    );
+
+                const periodLines =
+                    pdf.splitTextToSize(
+                        period,
+                        41
+                    );
+
+                const statusLines =
+                    pdf.splitTextToSize(
+                        activity.stato ===
+                        "Completata"
+                            ? "Completata"
+                            : clean(
+                                activity.stato,
+                                "In corso"
+                            ),
+                        29
+                    );
+
+                const maxLines = Math.max(
+                    descriptionLines.length,
+                    noteLines.length,
+                    periodLines.length,
+                    statusLines.length
+                );
+
+                const rowHeight =
+                    Math.max(
+                        15,
+                        7 + maxLines * 4.2
+                    );
+
+                if (
+                    y + rowHeight >
+                    BOTTOM
+                ) {
+
+                    pdf.addPage();
+                    y = 14;
+
+                    pdf.setFont(
+                        "helvetica",
+                        "bold"
+                    );
+
+                    pdf.setFontSize(9);
+                    textColor(C.muted);
+
+                    pdf.text(
+                        `Dettaglio Progetto - ${clean(p.codice)}`,
+                        M,
+                        y
+                    );
+
+                    draw(C.border);
+
+                    pdf.line(
+                        M,
+                        y + 3,
+                        W - M,
+                        y + 3
+                    );
+
+                    y += 10;
+
+                    tableHeader();
+                }
+
+                if (index % 2 === 0) {
+
+                    fill([
+                        252,
+                        253,
+                        254
+                    ]);
+
+                    pdf.rect(
+                        M,
+                        y,
+                        CW,
+                        rowHeight,
+                        "F"
+                    );
+                }
+
+                draw(C.border);
+
+                pdf.line(
+                    M,
+                    y + rowHeight,
+                    W - M,
+                    y + rowHeight
+                );
+
+                pdf.setFont(
+                    "helvetica",
+                    "bold"
+                );
+
+                pdf.setFontSize(8);
+
+                textColor(
+                    activity.stato ===
+                    "Completata"
+                        ? C.yesText
+                        : C.text
+                );
+
+                pdf.text(
+                    statusLines,
+                    M + 3,
+                    y + 6,
+                    {
+                        lineHeightFactor: 1.1
+                    }
+                );
+
+                pdf.setFont(
+                    "helvetica",
+                    "normal"
+                );
+
+                pdf.setFontSize(8.5);
+                textColor(C.text);
+
+                pdf.text(
+                    descriptionLines,
+                    M + 36,
+                    y + 6,
+                    {
+                        lineHeightFactor: 1.1
+                    }
+                );
+
+                pdf.text(
+                    periodLines,
+                    M + 92,
+                    y + 6,
+                    {
+                        lineHeightFactor: 1.1
+                    }
+                );
+
+                pdf.text(
+                    noteLines,
+                    M + 137,
+                    y + 6,
+                    {
+                        lineHeightFactor: 1.1
+                    }
+                );
+
+                y += rowHeight;
+            }
+        );
+    }
+
+    /*
+     * Numerazione delle pagine
+     */
+
+    const totalPages =
+        pdf.internal.getNumberOfPages();
+
+    for (
+        let page = 1;
+        page <= totalPages;
+        page++
+    ) {
+
+        pdf.setPage(page);
+
+        draw(C.border);
+        pdf.setLineWidth(0.2);
+
+        pdf.line(
+            M,
+            H - 12,
+            W - M,
+            H - 12
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "normal"
+        );
+
+        pdf.setFontSize(8);
+        textColor(C.muted);
+
+        pdf.text(
+            `Pagina ${page} / ${totalPages}`,
+            W / 2,
+            H - 8,
+            {
+                align: "center"
+            }
+        );
+    }
+
+    /*
+     * Nome del file
+     */
+
+    const fileName =
+        (
+            clean(
+                p.codice,
+                "progetto"
+            ) +
+            "_" +
+            clean(
+                p.applicativo,
+                "applicativo"
+            )
+        )
+        .replace(
+            /[\\/:*?"<>|]/g,
+            "_"
+        )
+        .replace(
+            /\s+/g,
+            "_"
+        );
+
+    pdf.save(
+        fileName + ".pdf"
+    );
+}
+
+async function exportSummaryPDF() {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert("jsPDF non caricato. Verifica la connessione Internet e ricarica la pagina.");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF("l", "mm", "a4");
+    const W = pdf.internal.pageSize.getWidth();
+    const H = pdf.internal.pageSize.getHeight();
+    const M = 10;
+    const CW = W - M * 2;
+    const BOTTOM = H - 17;
+    let y = 13;
+
+    const C = {
+        primary:[44,62,80], accent:[52,152,219], text:[45,55,72],
+        muted:[113,128,150], border:[226,232,240], light:[248,250,252],
+        white:[255,255,255], green:[39,174,96], greenLight:[238,250,241],
+        total:[237,242,247], yesBg:[212,237,218], yesText:[21,87,36],
+        noBg:[248,215,218], noText:[114,28,36]
+    };
+    const phaseColors = {
+        Ideazione:[127,140,141], Avvio:[41,128,185], Analisi:[247,220,111], Sviluppo:[243,156,18],
+        Collaudo:[142,68,173], Certificazione:[174,214,241], Esercizio:[39,174,96]
+    };
+    const fill=c=>pdf.setFillColor(c[0],c[1],c[2]);
+    const draw=c=>pdf.setDrawColor(c[0],c[1],c[2]);
+    const color=c=>pdf.setTextColor(c[0],c[1],c[2]);
+    const clean=(v,f="-")=>{const t=v===undefined||v===null?"":String(v).trim();return t||f;};
+
+    const search=(searchText.value||"").trim().toLowerCase();
+    const selected=[...document.querySelectorAll('#filterFase input:checked')].map(cb=>cb.value);
+    let filtered=data.filter(p=>{
+        if(selected.length && !selected.includes(p.fase)) return false;
+let txt=`${p.codice||""} ${p.applicativo||""} ${p.projectManager||""} ${p.fase||""} ${p.descrizione||""} ${p.note||""} ${p.rifOrdine||""} ${p.costo||""} ${p.promemoria||""} ${p.offerta||""} ${p.vpu||""}`;
+        (p.attivita||[]).forEach(a=>txt+=` ${a.descrizione||""} ${a.note||""} ${a.stato||""}`);
+        return txt.toLowerCase().includes(search);
+    });
+
+    if(sortField){
+        filtered.sort((a,b)=>{
+            let va,vb;
+            if(sortField==="periodo"){va=a.inizio||"";vb=b.inizio||"";}
+            else if(sortField==="attivita"){va=(a.attivita||[]).length;vb=(b.attivita||[]).length;}
+            else if(sortField==="durata"){va=calcolaDurata(a);vb=calcolaDurata(b);}
+            else {va=a[sortField]??"";vb=b[sortField]??"";}
+            if(["costo","attivita","durata"].includes(sortField)) return (Number(va)-Number(vb))*sortDirection;
+            return String(va).localeCompare(String(vb),"it",{sensitivity:"base"})*sortDirection;
+        });
+    }
+
+    const totalCost=filtered.reduce((s,p)=>s+(Number(p.costo)||0),0);
+    const totalActivities=filtered.reduce((s,p)=>s+(p.attivita||[]).length,0);
+    const averageCost=filtered.length?totalCost/filtered.length:0;
+	const faseCount = {
+          Ideazione: filtered.filter(p => p.fase === "Ideazione").length,
+          Avvio: filtered.filter(p => p.fase === "Avvio").length,
+		  Analisi: filtered.filter(p => p.fase === "Analisi").length,
+          Sviluppo: filtered.filter(p => p.fase === "Sviluppo").length,
+          Collaudo: filtered.filter(p => p.fase === "Collaudo").length,
+          Certificazione: filtered.filter(p => p.fase === "Certificazione").length,
+          Esercizio: filtered.filter(p => p.fase === "Esercizio").length
+                      };
+	const riepilogoFasi =
+         `ideazione:${faseCount.Ideazione}
+          Avvio:${faseCount.Avvio}
+		  Analisi:${faseCount.Analisi}
+          Sviluppo:${faseCount.Sviluppo}
+          Collaudo:${faseCount.Collaudo}
+          Certificazione:${faseCount.Certificazione}
+          Esercizio:${faseCount.Esercizio}`;
+
+
+    function kpi(x,top,w,label,value,accent=C.primary){
+        fill(C.light);draw(C.border);pdf.roundedRect(x,top,w,22,2,2,"FD");
+        fill(accent);pdf.roundedRect(x,top,3,22,1.5,1.5,"F");
+        pdf.setFont("helvetica","bold");pdf.setFontSize(7);color(C.muted);
+        pdf.text(label.toUpperCase(),x+7,top+7);
+        pdf.setFontSize(12);color(C.text);
+        const lines=pdf.splitTextToSize(String(value),w-12).slice(0,2);
+        pdf.text(lines,x+7,top+15,{lineHeightFactor:1});
+    }
+
+    function statusBadge(value,x,top){
+        const yes=clean(value,"NO").toUpperCase()==="SI";
+        fill(yes?C.yesBg:C.noBg);pdf.roundedRect(x,top,13,6,3,3,"F");
+        pdf.setFont("helvetica","bold");pdf.setFontSize(6.8);color(yes?C.yesText:C.noText);
+        pdf.text(yes?"SI":"NO",x+6.5,top+4.1,{align:"center"});
+    }
+
+const cols=[
+    {k:"codice",l:"Codice",w:27},
+    {k:"applicativo",l:"Applicativo",w:27},
+    {k:"projectManager",l:"Project Manager",w:30},
+    {k:"descrizione",l:"Descrizione",w:40},
+    {k:"periodo",l:"Periodo",w:27},
+    {k:"fase",l:"Fase",w:22},
+    {k:"rifOrdine",l:"Rif. ordine",w:22},
+    {k:"costo",l:"Costo",w:23},
+    {k:"attivita",l:"Att.",w:11},
+    {k:"promemoria",l:"Prom.",w:16},
+    {k:"offerta",l:"Off.",w:16},
+    {k:"vpu",l:"VPU",w:16}
+];
+
+function tableHeader() {
+
+    /*
+     * Sfondo dell'intestazione.
+     */
+    fill(C.primary);
+
+    pdf.roundedRect(
+        M,
+        y,
+        CW,
+        10,
+        1.5,
+        1.5,
+        "F"
+    );
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(8);
+    color(C.white);
+
+    let x = M;
+
+    cols.forEach(col => {
+
+        /*
+         * Colonne centrate nei risultati:
+         * Fase, Attività, Promemoria,
+         * Offerta e VPU.
+         */
+        if (
+            col.k === "fase" ||
+            col.k === "attivita" ||
+            col.k === "promemoria" ||
+            col.k === "offerta" ||
+            col.k === "vpu"
+        ) {
+
+            pdf.text(
+                col.l,
+                x + col.w / 2,
+                y + 6.3,
+                {
+                    align: "center"
+                }
+            );
+
+        /*
+         * La colonna Costo è allineata
+         * a destra anche nei risultati.
+         */
+        } else if (
+            col.k === "costo"
+        ) {
+
+            pdf.text(
+                col.l,
+                x + col.w - 2,
+                y + 6.3,
+                {
+                    align: "right"
+                }
+            );
+
+        /*
+         * Le altre colonne sono
+         * allineate a sinistra.
+         */
+        } else {
+
+            pdf.text(
+                col.l,
+                x + 2,
+                y + 6.3
+            );
+        }
+
+        /*
+         * Passa alla colonna successiva.
+         */
+        x += col.w;
+    });
+
+    y += 10;
+}
+
+    function continuationPage(){
+        pdf.addPage();y=12;
+        pdf.setFont("helvetica","bold");pdf.setFontSize(10);color(C.primary);
+        pdf.text("Riepilogo Progetti",M,y);
+        pdf.setFont("helvetica","normal");pdf.setFontSize(8);color(C.muted);
+        pdf.text(`Progetti visualizzati: ${filtered.length}`,W-M,y,{align:"right"});
+        draw(C.border);pdf.line(M,y+3,W-M,y+3);y+=9;tableHeader();
+    }
+
+    function cellValue(p,key){
+        if(key==="periodo") return `${formatDateIT(p.inizio)||"-"} - ${formatDateIT(p.fine)||"-"}`;
+        if(key==="costo") return `${formatEuro(p.costo)} EUR`;
+        if(key==="attivita") return String((p.attivita||[]).length);
+        return clean(p[key]);
+    }
+
+    // Copertina dashboard
+    pdf.setFont("helvetica","bold");pdf.setFontSize(20);color(C.primary);
+    pdf.text("Riepilogo Progetti",M,y+5);
+    const stamp=new Date().toLocaleString("it-IT",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    pdf.setFont("helvetica","normal");pdf.setFontSize(8.5);color(C.muted);
+    pdf.text("Esportato il "+stamp,W-M,y+5,{align:"right"});
+    draw(C.accent);pdf.setLineWidth(.7);pdf.line(M,y+9,W-M,y+9);y+=16;
+
+    fill(C.light);draw(C.border);pdf.roundedRect(M,y,CW,18,2,2,"FD");
+    pdf.setFont("helvetica","bold");pdf.setFontSize(7.5);color(C.muted);pdf.text("FILTRI APPLICATI",M+5,y+6);
+    pdf.setFont("helvetica","normal");pdf.setFontSize(8.5);color(C.text);
+    const filterText=`Ricerca: ${searchText.value||"Nessuna"}   |   Fasi: ${selected.length?selected.join(", "):"Tutte"}`;
+    pdf.text(pdf.splitTextToSize(filterText,CW-10).slice(0,2),M+5,y+12,{lineHeightFactor:1});y+=23;
+
+// Calcoliamo lo spazio per 3 KPI invece di 4
+    const gap=5, kw=(CW-gap*2)/3; 
+    
+    kpi(M,y,kw,"Progetti visualizzati",filtered.length,C.accent);
+    kpi(M+kw+gap,y,kw,"Costo totale",formatEuro(totalCost)+" EURO",C.green);
+
+    // Layout personalizzato e accattivante per "Distribuzione Fasi"
+    (function drawDistribuzioneFasi(x, top, w) {
+        // Disegna il contenitore base
+           fill(C.light);
+           draw(C.border);
+           pdf.roundedRect(x, top, w, 22, 2, 2, "FD");
+
+           fill([52,152,219]);
+           pdf.roundedRect(x, top, 3, 22, 1.5, 1.5, "F");
+        
+        // Titolo del KPI
+        pdf.setFont("helvetica","bold"); pdf.setFontSize(7); color(C.muted);
+        pdf.text("DISTRIBUZIONE FASI", x+7, top+6);
+
+        // Mappa delle fasi con relative abbreviazioni per farle entrare perfettamente
+        const phases = [
+            { n: "Ideaz.", v: faseCount.Ideazione, c: phaseColors.Ideazione },
+            { n: "Avvio", v: faseCount.Avvio, c: phaseColors.Avvio },
+			{ n: "Analisi", v: faseCount.Analisi, c: phaseColors.Analisi },
+            { n: "Sviluppo", v: faseCount.Sviluppo, c: phaseColors.Sviluppo },
+            { n: "Collaudo", v: faseCount.Collaudo, c: phaseColors.Collaudo },
+            { n: "Certif.", v: faseCount.Certificazione, c: phaseColors.Certificazione },
+            { n: "Esercizio", v: faseCount.Esercizio, c: phaseColors.Esercizio }
+        ];
+
+        // Creiamo una griglia 4x2
+        const colW = (w - 10) / 4;
+        pdf.setFontSize(8);
+        
+        phases.forEach((ph, i) => {
+            // Calcolo posizione X e Y per la griglia
+            let currX = x + 7 + (i % 4) * colW;
+            let currY = top + 13 + Math.floor(i / 4) * 6; 
+
+            // Disegna il pallino colorato della fase
+            fill(ph.c);
+            pdf.circle(currX + 1.5, currY - 1.2, 1.5, "F"); 
+
+            // Disegna Etichetta e Valore
+            color(C.text);
+            pdf.setFont("helvetica", "normal");
+            pdf.text(`${ph.n}:`, currX + 4, currY);
+            pdf.setFont("helvetica", "bold");
+            let labelWidth = pdf.getTextWidth(`${ph.n}: `);
+            pdf.text(String(ph.v), currX + 4 + labelWidth, currY);
+        });
+    })(M+(kw+gap)*2, y, kw);
+
+    y+=28;
+	
+// Grafici dentro card, mantenendo le proporzioni
+try {
+
+    const c1 =
+        document.getElementById("faseChart");
+
+    const c2 =
+        document.getElementById("costiChart");
+
+    if (
+        c1 &&
+        c2 &&
+        c1.width > 0 &&
+        c1.height > 0 &&
+        c2.width > 0 &&
+        c2.height > 0
+    ) {
+
+        pdf.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        pdf.setFontSize(8);
+        color(C.muted);
+
+        pdf.text(
+            "ANALISI GRAFICA",
+            M,
+            y + 2
+        );
+
+        y += 6;
+
+        /*
+         * Dimensioni delle due card.
+         */
+        const cardGap = 8;
+
+        const cardW =
+            (CW - cardGap) / 2;
+
+        const cardH = 82;
+
+        /*
+         * Spazio interno disponibile.
+         */
+        const chartPaddingX = 8;
+        const chartPaddingTop = 5;
+        const chartPaddingBottom = 5;
+
+        const availableWidth =
+            cardW -
+            chartPaddingX * 2;
+
+        const availableHeight =
+            cardH -
+            chartPaddingTop -
+            chartPaddingBottom;
+
+        /*
+         * Disegno delle card.
+         */
+        fill(C.white);
+        draw(C.border);
+
+        pdf.roundedRect(
+            M,
+            y,
+            cardW,
+            cardH,
+            2,
+            2,
+            "FD"
+        );
+
+        pdf.roundedRect(
+            M + cardW + cardGap,
+            y,
+            cardW,
+            cardH,
+            2,
+            2,
+            "FD"
+        );
+
+        /*
+         * Calcola le dimensioni mantenendo
+         * le proporzioni originali del canvas.
+         */
+        function calculateChartSize(
+            canvas,
+            maxWidth,
+            maxHeight
+        ) {
+
+            const originalWidth =
+                canvas.width;
+
+            const originalHeight =
+                canvas.height;
+
+            const ratio =
+                originalWidth /
+                originalHeight;
+
+            let width = maxWidth;
+
+            let height =
+                width / ratio;
+
+            /*
+             * Se il grafico supera l'altezza disponibile,
+             * limita l'altezza e ricalcola la larghezza.
+             */
+            if (height > maxHeight) {
+
+                height = maxHeight;
+
+                width =
+                    height * ratio;
+            }
+
+            return {
+                width,
+                height
+            };
+        }
+
+        const chart1Size =
+            calculateChartSize(
+                c1,
+                availableWidth,
+                availableHeight
+            );
+
+        const chart2Size =
+            calculateChartSize(
+                c2,
+                availableWidth,
+                availableHeight
+            );
+
+        /*
+         * Centra il primo grafico.
+         */
+        const chart1X =
+            M +
+            (
+                cardW -
+                chart1Size.width
+            ) / 2;
+
+        const chart1Y =
+            y +
+            (
+                cardH -
+                chart1Size.height
+            ) / 2;
+
+        /*
+         * Centra il secondo grafico.
+         */
+        const secondCardX =
+            M +
+            cardW +
+            cardGap;
+
+        const chart2X =
+            secondCardX +
+            (
+                cardW -
+                chart2Size.width
+            ) / 2;
+
+        const chart2Y =
+            y +
+            (
+                cardH -
+                chart2Size.height
+            ) / 2;
+
+        /*
+         * Converte i canvas in immagini.
+         */
+        const chart1Image =
+            c1.toDataURL(
+                "image/png",
+                1
+            );
+
+        const chart2Image =
+            c2.toDataURL(
+                "image/png",
+                1
+            );
+
+        /*
+         * Inserisce i grafici senza deformarli.
+         */
+        pdf.addImage(
+            chart1Image,
+            "PNG",
+            chart1X,
+            chart1Y,
+            chart1Size.width,
+            chart1Size.height
+        );
+
+        pdf.addImage(
+            chart2Image,
+            "PNG",
+            chart2X,
+            chart2Y,
+            chart2Size.width,
+            chart2Size.height
+        );
+
+        y += cardH + 5;
+    }
+
+} catch (err) {
+
+    console.warn(
+        "Grafici non inseriti nel PDF",
+        err
+    );
+}
+    pdf.addPage();y=14;
+    pdf.setFont("helvetica","bold");pdf.setFontSize(14);color(C.primary);
+    pdf.text("Elenco Progetti",W/2,y,{align:"center"});y+=7;tableHeader();
+
+    filtered.forEach((p,index)=>{
+        const prepared={};let maxLines=1;
+        cols.forEach(col=>{
+            const val=cellValue(p,col.k);
+            if(["promemoria","offerta","vpu"].includes(col.k)){prepared[col.k]=[clean(val,"NO")];return;}
+            const lines=pdf.splitTextToSize(String(val),col.w-4);
+            prepared[col.k]=lines;maxLines=Math.max(maxLines,lines.length);
+        });
+        const rh=Math.max(10,5+maxLines*3.7);
+        if(y+rh>BOTTOM) continuationPage();
+        if(p.fase==="Esercizio") fill(C.greenLight);
+        else fill(index%2===0?[249,250,251]:C.white);
+        pdf.rect(M,y,CW,rh,"F");draw(C.border);pdf.line(M,y+rh,W-M,y+rh);
+
+        let x=M;
+        cols.forEach(col=>{
+            if(col.k==="fase"){
+                const pc=phaseColors[p.fase]||C.primary;fill(pc);pdf.roundedRect(x+2,y+2,col.w-4,6,2,2,"F");
+                pdf.setFont("helvetica","bold");pdf.setFontSize(6.4);color(p.fase==="Certificazione"?C.text:C.white);
+                pdf.text(clean(p.fase),x+col.w/2,y+6,{align:"center"});
+            }else if(["promemoria","offerta","vpu"].includes(col.k)){
+                statusBadge(p[col.k],x+(col.w-13)/2,y+2);
+            }else if(col.k==="attivita"){
+                pdf.setFont("helvetica","bold");pdf.setFontSize(8);color(C.text);
+                pdf.text(prepared[col.k][0],x+col.w/2,y+6,{align:"center"});
+            }else if(col.k==="costo"){
+                pdf.setFont("helvetica","normal");pdf.setFontSize(8);color(C.text);
+                pdf.text(prepared[col.k],x+col.w-2,y+5.5,{align:"right",lineHeightFactor:1.05});
+            }else{
+                pdf.setFont("helvetica",col.k==="codice"?"bold":"normal");pdf.setFontSize(7.2);color(C.text);
+                pdf.text(prepared[col.k],x+2,y+5.5,{lineHeightFactor:1.05});
+            }
+            x+=col.w;
+        });
+        y+=rh;
+    });
+
+    if(!filtered.length){
+        fill(C.light);draw(C.border);pdf.roundedRect(M,y+4,CW,18,2,2,"FD");
+        pdf.setFont("helvetica","italic");pdf.setFontSize(10);color(C.muted);
+        pdf.text("Nessun progetto corrisponde ai filtri applicati.",W/2,y+15,{align:"center"});y+=26;
+    }else{
+        if(y+12>BOTTOM) continuationPage();
+        fill(C.total);draw(C.border);pdf.rect(M,y,CW,11,"FD");
+        pdf.setFont("helvetica","bold");pdf.setFontSize(8.5);color(C.primary);
+        pdf.text(`Totale progetti: ${filtered.length}`,M+3,y+7);
+        pdf.text(`Attivita: ${totalActivities}`,M+83,y+7);
+        pdf.text(`Costo totale: ${formatEuro(totalCost)} EUR`,W-M-3,y+7,{align:"right"});y+=11;
+    }
+
+    const pages=pdf.internal.getNumberOfPages();
+    for(let page=1;page<=pages;page++){
+        pdf.setPage(page);draw(C.border);pdf.setLineWidth(.2);pdf.line(M,H-12,W-M,H-12);
+        pdf.setFont("helvetica","normal");pdf.setFontSize(8);color(C.muted);
+        pdf.text("Gestione Progetti",M,H-8);
+        pdf.text(`Pagina ${page} / ${pages}`,W/2,H-8,{align:"center"});
+        pdf.text(`Progetti: ${filtered.length}`,W-M,H-8,{align:"right"});
+    }
+
+    const fileDate=new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+    pdf.save(`riepilogo_progetti_${fileDate}.pdf`);
+} 
+// Seleziona tutte le fasi al primo avvio
+document
+  .querySelectorAll('#filterFase input')
+  .forEach(cb => cb.checked = true);
+ 
+ async function exportScadenzePDF(){
+
+const { jsPDF } = window.jspdf;
+
+const pdf = new jsPDF(
+    "l",
+    "mm",
+    "a4"
+);
+
+const W = pdf.internal.pageSize.getWidth();
+const H = pdf.internal.pageSize.getHeight();
+
+const M = 10;
+const CW = W - (M * 2);
+const BOTTOM = H - 17;
+
+let y = 13;
+const C = {
+    primary:[44,62,80],
+    accent:[52,152,219],
+    text:[45,55,72],
+    muted:[113,128,150],
+    border:[226,232,240],
+    light:[248,250,252],
+    white:[255,255,255],
+    green:[39,174,96],
+    greenLight:[238,250,241],
+    red:[231,76,60],
+    redLight:[255,235,235]
+};
+
+function drawKpi(
+    x,
+    top,
+    width,
+    title,
+    value
+){
+    pdf.setFillColor(
+        248,250,252
+    );
+
+    pdf.setDrawColor(
+        226,232,240
+    );
+
+    pdf.roundedRect(
+        x,
+        top,
+        width,
+        22,
+        2,
+        2,
+        "FD"
+    );
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(7);
+
+    pdf.setTextColor(
+        113,128,150
+    );
+
+    pdf.text(
+        title.toUpperCase(),
+        x + 5,
+        top + 7
+    );
+
+    pdf.setFontSize(12);
+
+    pdf.setTextColor(
+        45,55,72
+    );
+
+    pdf.text(
+        String(value),
+        x + 5,
+        top + 16
+    );
+}
+    // =========================
+    // DATA ODIERNA
+    // =========================
+
+    const oggi = new Date();
+
+    oggi.setHours(0,0,0,0);
+
+    // =========================
+    // RACCOLTA ATTIVITÀ
+    // =========================
+
+let rows = [];
+
+data.forEach(p => {
+    (p.attivita || []).forEach(a => {
+
+        // Normalizza lo stato per evitare problemi
+        // dovuti a maiuscole, minuscole o spazi.
+        const statoAttivita = String(a.stato || "")
+            .trim()
+            .toLowerCase();
+
+        // Mostra solamente:
+        // - In corso
+        // - Da avviare
+        if (
+            statoAttivita !== "in corso" &&
+            statoAttivita !== "da avviare"
+        ) {
+            return;
+        }
+
+        let dataInizioAttivita = null;
+        let dataFineAttivita = null;
+
+        if (a.inizio) {
+            dataInizioAttivita = new Date(a.inizio);
+            dataInizioAttivita.setHours(0, 0, 0, 0);
+        }
+
+        if (a.fine) {
+            dataFineAttivita = new Date(a.fine);
+            dataFineAttivita.setHours(0, 0, 0, 0);
+        }
+
+        let tag = "IN CORSO";
+        let colorType = "green";
+        let diffDays = "";
+
+        // SCADUTA:
+        // oggi è successivo alla data fine
+        if (
+            dataFineAttivita &&
+            oggi > dataFineAttivita
+        ) {
+            tag = "SCADUTA";
+            colorType = "red";
+
+            diffDays = Math.floor(
+                (oggi - dataFineAttivita) /
+                (1000 * 60 * 60 * 24)
+            );
+        }
+
+        // DA AVVIARE:
+        // oggi è precedente alla data inizio.
+        // La scadenza ha la precedenza.
+        else if (
+            dataInizioAttivita &&
+            oggi < dataInizioAttivita
+        ) {
+            tag = "DA AVVIARE";
+            colorType = "blue";
+
+            diffDays = Math.floor(
+                (dataInizioAttivita - oggi) /
+                (1000 * 60 * 60 * 24)
+            );
+        }
+
+        // IN CORSO:
+        // attività non scaduta e già iniziata
+        else {
+            tag = "IN CORSO";
+            colorType = "green";
+
+            // Se esiste la data fine, mostra
+            // quanti giorni mancano alla conclusione.
+            if (dataFineAttivita) {
+                diffDays = Math.floor(
+                    (dataFineAttivita - oggi) /
+                    (1000 * 60 * 60 * 24)
+                );
+            }
+        }
+
+        rows.push({
+            progetto: p,
+            attivita: a,
+            diffDays,
+            tag,
+            colorType
+        });
+    });
+});
+
+// Ordinamento:
+// 1. attività scadute
+// 2. attività in corso
+// 3. attività da avviare
+// All'interno del gruppo, ordinamento per data.
+const ordineTag = {
+    "SCADUTA": 1,
+    "IN CORSO": 2,
+    "DA AVVIARE": 3
+};
+
+rows.sort((a, b) => {
+    const ordineA = ordineTag[a.tag] || 99;
+    const ordineB = ordineTag[b.tag] || 99;
+
+    if (ordineA !== ordineB) {
+        return ordineA - ordineB;
+    }
+
+    const dataA =
+        a.tag === "DA AVVIARE"
+            ? a.attivita.inizio
+            : a.attivita.fine;
+
+    const dataB =
+        b.tag === "DA AVVIARE"
+            ? b.attivita.inizio
+            : b.attivita.fine;
+
+    const valoreA = dataA
+        ? new Date(dataA).getTime()
+        : Number.MAX_SAFE_INTEGER;
+
+    const valoreB = dataB
+        ? new Date(dataB).getTime()
+        : Number.MAX_SAFE_INTEGER;
+
+    return valoreA - valoreB;
+});
+
+// =========================
+// KPI
+// =========================
+
+// =========================
+// KPI
+// =========================
+const scadute = rows.filter(
+    r => r.tag === "SCADUTA"
+).length;
+
+const inCorso = rows.filter(
+    r => r.tag === "IN CORSO"
+).length;
+
+const daAvviare = rows.filter(
+    r => r.tag === "DA AVVIARE"
+).length;
+
+const progetti =
+    new Set(
+        rows.map(
+            r => r.progetto.id
+        )
+    ).size;
+	
+    // =========================
+    // HEADER
+    // =========================
+
+pdf.setFont(
+    "helvetica",
+    "bold"
+);
+
+pdf.setFontSize(20);
+
+pdf.setTextColor(
+    C.primary[0],
+    C.primary[1],
+    C.primary[2]
+);
+
+pdf.text(
+    "Report Attività in Scadenza",
+    M,
+    y + 5
+);
+
+const stamp =
+    new Date().toLocaleString("it-IT");
+
+pdf.setFontSize(8);
+
+pdf.text(
+    "Esportato il " + stamp,
+    W - M,
+    y + 5,
+    {
+        align:"right"
+    }
+);
+
+pdf.setDrawColor(
+    C.accent[0],
+    C.accent[1],
+    C.accent[2]
+);
+
+pdf.line(
+    M,
+    y + 9,
+    W - M,
+    y + 9
+);
+
+y += 18;
+
+const gap = 5;
+
+const cardWidth =
+    (CW - gap * 3) / 4;
+
+drawKpi(
+    M,
+    y,
+    cardWidth,
+    "In corso",
+    inCorso
+);
+
+drawKpi(
+    M + cardWidth + gap,
+    y,
+    cardWidth,
+    "Da avviare",
+    daAvviare
+);
+
+drawKpi(
+    M + (cardWidth + gap) * 2,
+    y,
+    cardWidth,
+    "Scadute",
+    scadute
+);
+
+drawKpi(
+    M + (cardWidth + gap) * 3,
+    y,
+    cardWidth,
+    "Progetti",
+    progetti
+);
+
+y += 30;
+pdf.setFillColor(
+    248,250,252
+);
+
+pdf.setDrawColor(
+    226,232,240
+);
+
+pdf.roundedRect(
+    M,
+    y,
+    CW,
+    16,
+    2,
+    2,
+    "FD"
+);
+
+pdf.setFont(
+    "helvetica",
+    "bold"
+);
+
+pdf.setFontSize(8);
+
+pdf.text(
+    "LEGENDA",
+    M + 5,
+    y + 6
+);
+
+pdf.setTextColor(
+    41, 128, 185
+);
+pdf.text(
+    "Blu = attività da avviare",
+    M + 35,
+    y + 5
+);
+
+pdf.setTextColor(
+    39, 174, 96
+);
+pdf.text(
+    "Verde = attività in corso",
+    M + 105,
+    y + 5
+);
+
+pdf.setTextColor(
+    192, 57, 43
+);
+pdf.text(
+    "Rosso = attività scaduta",
+    M + 170,
+    y + 5
+);
+
+pdf.setTextColor(
+    45, 55, 72
+);
+
+pdf.setTextColor(
+    45,55,72
+);
+
+y += 22;
+
+    y += 8;
+
+    pdf.setFontSize(10);
+    pdf.setFont("helvetica","normal");
+
+    const exportDate =
+        oggi.toLocaleDateString("it-IT");
+
+    pdf.text(
+        `Data report: ${exportDate}`,
+        15,
+        y
+    );
+
+    y += 10;
+
+    // =========================
+    // INTESTAZIONE TABELLA
+    // =========================
+
+const cols = [
+    {k:"codice",      l:"Codice",      w:26},
+    {k:"applicativo", l:"Applicativo", w:30},
+    {k:"progetto",    l:"Progetto",    w:43},
+    {k:"attivita",    l:"Attività",    w:51},
+    {k:"inizio",      l:"Inizio",      w:20},
+    {k:"fine",        l:"Fine",        w:20},
+    {k:"scost",       l:"GG",          w:12},
+    {k:"stato",       l:"Classificazione", w:25},
+    {k:"note",        l:"Note",        w:46}
+];
+
+function drawHeader(){
+
+    pdf.setFillColor(44,62,80);
+
+    pdf.roundedRect(
+        M,
+        y,
+        CW,
+        10,
+        1.5,
+        1.5,
+        "F"
+    );
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(8);
+
+    pdf.setTextColor(255);
+
+    let x = M;
+
+    cols.forEach(col => {
+
+        pdf.text(
+            col.l,
+            x + 2,
+            y + 6.3
+        );
+
+        x += col.w;
+    });
+
+    y += 10;
+}
+
+if(rows.length > 0){
+
+    drawHeader();
+
+    // =========================
+    // RIGHE
+    // =========================
+    rows.forEach((r,index)=>{
+
+    const p = r.progetto;
+    const a = r.attivita;
+
+const row = {
+    codice: p.codice || "",
+    applicativo: p.applicativo || "",
+    progetto: p.descrizione || "",
+    attivita: a.descrizione || "",
+    inizio: formatDateIT(a.inizio),
+    fine: formatDateIT(a.fine),
+    scost: r.diffDays !== ""
+        ? String(r.diffDays)
+        : "",
+    stato: r.tag,
+    note: a.note || ""
+};
+
+    let prepared = {};
+    let maxLines = 1;
+
+    cols.forEach(col => {
+
+        let lines =
+            pdf.splitTextToSize(
+                String(row[col.k]),
+                col.w - 4
+            );
+
+        prepared[col.k] = lines;
+
+        maxLines =
+            Math.max(
+                maxLines,
+                lines.length
+            );
+    });
+
+    const rowHeight =
+        Math.max(
+            10,
+            5 + maxLines * 3.7
+        );
+
+    if(y + rowHeight > BOTTOM){
+
+        pdf.addPage();
+
+        y = 15;
+
+        drawHeader();
+    }
+
+    // Colore della riga in base alla classificazione
+if (r.colorType === "red") {
+
+    // Attività scaduta
+    pdf.setFillColor(
+        255,
+        235,
+        235
+    );
+
+} else if (r.colorType === "blue") {
+
+    // Attività da avviare
+    pdf.setFillColor(
+        235,
+        245,
+        255
+    );
+
+} else {
+
+    // Attività in corso
+    pdf.setFillColor(
+        238,
+        250,
+        241
+    );
+}
+
+    pdf.rect(
+        M,
+        y,
+        CW,
+        rowHeight,
+        "F"
+    );
+
+    pdf.setDrawColor(
+        226,
+        232,
+        240
+    );
+
+    pdf.line(
+        M,
+        y + rowHeight,
+        W - M,
+        y + rowHeight
+    );
+
+    let x = M;
+
+    cols.forEach(col => {
+
+if (col.k === "stato") {
+
+    let tagBackground;
+    let tagTextColor;
+
+    if (r.tag === "SCADUTA") {
+        tagBackground = [231, 76, 60];
+        tagTextColor = [255, 255, 255];
+    } else if (r.tag === "DA AVVIARE") {
+        tagBackground = [41, 128, 185];
+        tagTextColor = [255, 255, 255];
+    } else {
+        tagBackground = [39, 174, 96];
+        tagTextColor = [255, 255, 255];
+    }
+
+    pdf.setFillColor(
+        tagBackground[0],
+        tagBackground[1],
+        tagBackground[2]
+    );
+
+    pdf.roundedRect(
+        x + 2,
+        y + 2,
+        col.w - 4,
+        6,
+        2,
+        2,
+        "F"
+    );
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(6.5);
+
+    pdf.setTextColor(
+        tagTextColor[0],
+        tagTextColor[1],
+        tagTextColor[2]
+    );
+
+    pdf.text(
+        r.tag,
+        x + col.w / 2,
+        y + 6,
+        {
+            align: "center"
+        }
+    );
+
+} else {
+
+    pdf.setFont(
+        "helvetica",
+        col.k === "codice"
+            ? "bold"
+            : "normal"
+    );
+
+    pdf.setFontSize(8);
+
+    pdf.setTextColor(
+        45,
+        55,
+        72
+    );
+
+    pdf.text(
+        prepared[col.k],
+        x + 2,
+        y + 5.5,
+        {
+            lineHeightFactor: 1.05
+        }
+    );
+}
+
+x += col.w;
+    });
+
+    y += rowHeight;
+});
+
+}
+
+    // =========================
+    // FOOTER
+    // =========================
+
+    const totalPages =
+        pdf.internal.getNumberOfPages();
+
+    for(let i=1;i<=totalPages;i++){
+
+        pdf.setPage(i);
+
+        pdf.setFontSize(9);
+
+        pdf.text(
+            `Pagina ${i}/${totalPages}`,
+            250,
+            200
+        );
+    }
+
+    // =========================
+    // SAVE
+    // =========================
+
+    const now = new Date();
+
+    const fileDate =
+        now.toISOString()
+           .slice(0,19)
+           .replace(/[:T]/g,"-");
+
+    pdf.save(
+        `report_scadenze_${fileDate}.pdf`
+    );
+} 
+function showDeletePopup(onConfirm){
+
+    const overlay = document.createElement("div");
+
+    overlay.style.position = "fixed";
+    overlay.style.top = 0;
+    overlay.style.left = 0;
+    overlay.style.width = "100%";
+    overlay.style.height = "100%";
+    overlay.style.background = "rgba(0,0,0,0.4)";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.zIndex = 999999;
+
+    overlay.innerHTML = `
+
+        <div style="
+            background:white;
+            padding:25px;
+            border-radius:10px;
+            width:320px;
+            box-shadow:0 5px 20px rgba(0,0,0,0.25);
+            text-align:center;
+            font-family:Segoe UI;
+        ">
+
+            <div style="
+                font-size:42px;
+                margin-bottom:10px;
+            ">
+                🗑️
+            </div>
+
+            <h3 style="
+                margin:0 0 10px 0;
+                color:#2c3e50;
+            ">
+                Elimina attività
+            </h3>
+
+            <p style="
+                margin-bottom:20px;
+                color:#555;
+            ">
+                Confermi l'eliminazione dell'attività?
+            </p>
+
+            <div style="
+                display:flex;
+                justify-content:center;
+                gap:10px;
+            ">
+
+                <button id="popupCancel" style="
+                    padding:8px 14px;
+                    border:none;
+                    border-radius:6px;
+                    background:#bdc3c7;
+                    cursor:pointer;
+                ">
+                    Annulla
+                </button>
+
+                <button id="popupConfirm" style="
+                    padding:8px 14px;
+                    border:none;
+                    border-radius:6px;
+                    background:#e74c3c;
+                    color:white;
+                    cursor:pointer;
+                    font-weight:bold;
+                ">
+                    Elimina
+                </button>
+
+            </div>
+
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelector("#popupCancel")
+        .onclick = () => overlay.remove();
+
+    overlay.querySelector("#popupConfirm")
+        .onclick = () => {
+
+            onConfirm();
+
+            overlay.remove();
+        };
+
+    overlay.addEventListener("click", e => {
+
+        if(e.target === overlay){
+
+            overlay.remove();
+        }
+    });
+}
+
+
+function sortAttivitaByInizio(attivita){
+  return [...(attivita || [])].sort((a,b)=>{
+    // date vuote vanno in fondo
+    const da = a?.inizio ? new Date(a.inizio) : new Date(8640000000000000);
+    const db = b?.inizio ? new Date(b.inizio) : new Date(8640000000000000);
+    return (da - db) * activitySortDirection;
+  });
+}
+
+function toggleActivitySort(){
+  activitySortDirection *= -1;
+
+  const label = activitySortDirection === 1
+    ? "Ordinamento Attività ↑"
+    : "Ordinamento Attività ↓";
+
+  const btn = document.getElementById("sortBtn");
+  if(btn) btn.textContent = label;
+
+  // Se sto editando un progetto, ri-render delle attività nella form
+  if(editId){
+    const p = data.find(x => x.id === editId);
+    if(p){
+      activities.innerHTML = "";
+      sortAttivitaByInizio(p.attivita).forEach(a => addActivity(a));
+    }
+  }
+}
+
+function toggleSortButtonVisibility(){
+
+    const btn = document.getElementById("sortBtn");
+
+    const count = document.querySelectorAll("#activities .activity-box").length;
+
+    if(count === 0){
+        btn.style.display = "none";
+    } else {
+        btn.style.display = "inline-block";
+    }
+}
+
+function showFTEReport(){
+
+    const report = {};
+    const reportPM = {};
+
+    const annoCorrente =
+        new Date().getFullYear();
+
+    data.forEach(p => {
+
+        // Ricava anno dal codice progetto
+        const match =
+            (p.codice || "").match(/\-(\d{2})\-/);
+
+        if(!match){
+            return;
+        }
+
+        const annoProgetto =
+            Number("20" + match[1]);
+
+      //  if(annoProgetto < 2025){
+      //      return;
+      //  }
+
+        if(!p.inizio){
+            return;
+        }
+
+        const start =
+            new Date(p.inizio);
+
+        let end;
+
+        // Se non esiste data fine
+        // usa 31/12 anno corrente
+        if(p.fine){
+
+            end = new Date(p.fine);
+
+        } else {
+
+            end = new Date(
+                annoCorrente,
+                11,
+                31
+            );
+        }
+
+        let current =
+            new Date(
+                start.getFullYear(),
+                start.getMonth(),
+                1
+            );
+
+        while(current <= end){
+
+            const anno =
+                current.getFullYear();
+
+            if(anno < 2025){
+
+                current.setMonth(
+                    current.getMonth() + 1
+                );
+
+                continue;
+            }
+
+            if(!report[anno]){
+                report[anno] = {};
+            }
+
+            const mese =
+                current.getMonth();
+
+            if(!report[anno][mese]){
+                report[anno][mese] = 0;
+            }
+
+            report[anno][mese]++;
+
+            current.setMonth(
+                current.getMonth() + 1
+            );
+        }
+
+    });
+
+    const mesiIT = [
+        "Gennaio",
+        "Febbraio",
+        "Marzo",
+        "Aprile",
+        "Maggio",
+        "Giugno",
+        "Luglio",
+        "Agosto",
+        "Settembre",
+        "Ottobre",
+        "Novembre",
+        "Dicembre"
+    ];
+
+    const tbody =
+        document.getElementById(
+            "fteTableBody"
+        );
+
+    tbody.innerHTML = "";
+
+    Object.keys(report)
+        .sort()
+        .forEach(anno => {
+
+// =====================
+// TITOLO ANNO
+// =====================
+
+const titleRow =
+    document.createElement("tr");
+
+titleRow.innerHTML = `
+    <td colspan="3"
+        style="
+            background:#2c3e50;
+            color:white;
+            font-size:18px;
+            font-weight:bold;
+            text-align:center;
+            padding:12px;
+        ">
+        ANNO ${anno}
+    </td>
+`;
+
+tbody.appendChild(titleRow);
+
+// =====================
+// INTESTAZIONE COLONNE
+// =====================
+
+const headerRow =
+    document.createElement("tr");
+
+headerRow.innerHTML = `
+    <th>Mese</th>
+    <th>Progetti Attivi</th>
+    <th>FTE Project Manager</th>
+`;
+
+tbody.appendChild(headerRow);
+
+            let totaleAnnuoPM = 0;
+
+            for(let mese = 0; mese < 12; mese++){
+
+                const progetti =
+                    report[anno][mese] || 0;
+
+                let ftePM = 0;
+				
+	        data.forEach(p => {
+
+    if(!p.inizio){
+        return;
+    }
+
+    let start = new Date(p.inizio);
+
+    let end = p.fine
+        ? new Date(p.fine)
+        : new Date(
+            annoCorrente,
+            11,
+            31
+        );
+
+    const primoGiornoMese =
+        new Date(anno, mese, 1);
+
+    const ultimoGiornoMese =
+        new Date(anno, mese + 1, 0);
+
+    // progetto non presente nel mese
+    if(
+        end < primoGiornoMese ||
+        start > ultimoGiornoMese
+    ){
+        return;
+    }
+
+    const inizioEffettivo =
+        start > primoGiornoMese
+        ? start
+        : primoGiornoMese;
+
+    const fineEffettiva =
+        end < ultimoGiornoMese
+        ? end
+        : ultimoGiornoMese;
+
+    const giorniAttivi =
+        Math.floor(
+            (
+                fineEffettiva -
+                inizioEffettivo
+            ) / 86400000
+        ) + 1;
+
+    const giorniMese =
+        ultimoGiornoMese.getDate();
+
+    const quotaFTE =
+        0.20 *
+        (
+            giorniAttivi /
+            giorniMese
+        );
+const pm = p.projectManager || "Non assegnato";
+
+if(!reportPM[anno]){
+    reportPM[anno] = {};
+}
+
+if(!reportPM[anno][mese]){
+    reportPM[anno][mese] = {};
+}
+
+if(!reportPM[anno][mese][pm]){
+    reportPM[anno][mese][pm] = 0;
+}
+
+reportPM[anno][mese][pm] += quotaFTE;
+
+    ftePM += quotaFTE;
+
+});
+
+       totaleAnnuoPM += ftePM;
+
+                const tr =
+                    document.createElement("tr");
+
+                tr.innerHTML = `
+               <td>${mesiIT[mese]}</td>
+               <td>
+               <a href="#"
+               onclick="showFTEDebug(${anno}, ${mese}); return false;">
+               ${progetti}
+               </a>
+               </td>
+               <td>${ftePM.toFixed(2)}</td>
+               `;
+
+                tbody.appendChild(tr);
+            }
+
+            const totaleRow =
+                document.createElement("tr");
+
+            totaleRow.style.fontWeight =
+               "bold";
+
+            totaleRow.style.background =
+               "#dfe6e9";
+
+            totaleRow.style.borderTop =
+                "2px solid #2c3e50";
+
+            totaleRow.innerHTML = `
+            <td>TOTALE ANNO ${anno}</td>
+            <td></td>
+            <td>${totaleAnnuoPM.toFixed(2)}</td>
+            `;
+
+            tbody.appendChild(totaleRow);
+			const spacerRow =
+    document.createElement("tr");
+
+spacerRow.innerHTML = `
+    <td colspan="3"
+        style="
+            height:20px;
+            border:none;
+            background:white;
+        ">
+    </td>
+`;
+
+tbody.appendChild(spacerRow);
+        });
+
+    document
+        .getElementById("fteModal")
+        .style.display = "flex";
+}
+
+function closeFTEReport(){
+
+    document
+        .getElementById("fteModal")
+        .style.display = "none";
+}
+
+function showFTEDebug(anno, mese){
+
+    const annoCorrente =
+        new Date().getFullYear();
+		
+	
+
+    let html = `
+        <h3>
+            Progetti attivi -
+            ${mese + 1}/${anno}
+        </h3>
+
+        <table style="
+            width:100%;
+            border-collapse:collapse;
+        ">
+            <thead>
+                <tr>
+                    <th>Codice</th>
+                    <th>Applicativo</th>
+                    <th>Project Manager</th>
+                    <th>Data Inizio</th>
+                    <th>Data Fine</th>
+
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    let totale = 0;
+
+    data.forEach(p => {
+
+          const match =
+            (p.codice || "").match(/\-(\d{2})\-/);
+
+        if(!match){
+            return;
+    }
+
+        if(!p.inizio){
+            return;
+        }
+
+        const start =
+            new Date(p.inizio);
+
+        let end;
+
+        if(p.fine){
+
+            end = new Date(p.fine);
+
+        } else {
+
+            end = new Date(
+                annoCorrente,
+                11,
+                31
+            );
+        }
+
+        let attivo = false;
+
+let current = new Date(
+    start.getFullYear(),
+    start.getMonth(),
+    1
+);
+
+while(current <= end){
+
+    if(
+        current.getFullYear() === anno &&
+        current.getMonth() === mese
+    ){
+        attivo = true;
+        break;
+    }
+
+    current.setMonth(
+        current.getMonth() + 1
+    );
+}
+
+        if(attivo){
+
+            totale++;
+
+            html += `
+                <tr>
+                    <td>${p.codice}</td>
+                    <td>${p.applicativo}</td>
+                    <td>${p.projectManager || "-"}</td>
+                    <td>${formatDateIT(p.inizio)}</td>
+                    <td>
+                        ${
+                         p.fine
+                         ? formatDateIT(p.fine)
+                         : "31/12/" + annoCorrente
+                          }
+                    </td>
+                </tr>
+            `;
+        }
+    });
+
+    html += `
+            </tbody>
+        </table>
+
+        <br>
+
+        <b>
+            Totale progetti attivi:
+            ${totale}
+        </b>
+    `;
+
+    const debug =
+    document.getElementById(
+        "fteDebugContainer"
+    );
+
+    debug.innerHTML = html;
+    debug.style.display = "block";
+}
+
+function exportReportVPU(){
+
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        alert("jsPDF non caricato. Verifica la connessione Internet e ricarica la pagina.");
+        return;
+    }
+
+    const { jsPDF } = window.jspdf;
+
+    const pdf = new jsPDF(
+        "l",
+        "mm",
+        "a4"
+    );
+
+    const W = pdf.internal.pageSize.getWidth();
+    const H = pdf.internal.pageSize.getHeight();
+
+    const M = 10;
+    const CW = W - (M * 2);
+    const BOTTOM = H - 17;
+
+    let y = 13;
+
+    const C = {
+        primary: [44, 62, 80],
+        accent: [52, 152, 219],
+        text: [45, 55, 72],
+        muted: [113, 128, 150],
+        border: [226, 232, 240],
+        light: [248, 250, 252],
+        white: [255, 255, 255],
+        orange: [243, 156, 18],
+        orangeLight: [255, 248, 235]
+    };
+
+    const oggi = new Date();
+    oggi.setHours(0, 0, 0, 0);
+
+    /*
+     * Seleziona solamente i progetti:
+     * - con VPU uguale a NO
+     * - con data fine valorizzata
+     * - terminati da almeno un giorno
+     */
+    const report = data.filter(p => {
+
+        if (
+            String(p.vpu || "")
+                .trim()
+                .toUpperCase() !== "NO"
+        ) {
+            return false;
+        }
+
+        if (!p.fine) {
+            return false;
+        }
+
+        const dataFine = new Date(p.fine);
+        dataFine.setHours(0, 0, 0, 0);
+
+        const diffDays = Math.floor(
+            (oggi - dataFine) /
+            (1000 * 60 * 60 * 24)
+        );
+
+        return diffDays >= 1;
+    });
+
+    if (report.length === 0) {
+        alert("Nessun progetto con VPU da emettere.");
+        return;
+    }
+
+    /*
+     * Ordina i progetti dalla data fine più vecchia.
+     */
+    report.sort((a, b) => {
+        return new Date(a.fine) - new Date(b.fine);
+    });
+
+    /*
+     * Calcolo dei valori riepilogativi.
+     */
+    const costoTotale = report.reduce(
+        (totale, p) =>
+            totale + (Number(p.costo) || 0),
+        0
+    );
+
+    const ordiniPresenti = report.filter(
+        p => String(p.rifOrdine || "").trim() !== ""
+    ).length;
+
+    const totaleGiorni = report.reduce(
+        (totale, p) => {
+
+            const dataFine = new Date(p.fine);
+            dataFine.setHours(0, 0, 0, 0);
+
+            const giorni = Math.floor(
+                (oggi - dataFine) /
+                (1000 * 60 * 60 * 24)
+            );
+
+            return totale + giorni;
+        },
+        0
+    );
+
+    const mediaGiorni = Math.round(
+        totaleGiorni / report.length
+    );
+
+    /*
+     * Disegna una scheda KPI.
+     */
+    function drawKpi(
+        x,
+        top,
+        width,
+        title,
+        value
+    ) {
+        pdf.setFillColor(
+            C.light[0],
+            C.light[1],
+            C.light[2]
+        );
+
+        pdf.setDrawColor(
+            C.border[0],
+            C.border[1],
+            C.border[2]
+        );
+
+        pdf.roundedRect(
+            x,
+            top,
+            width,
+            22,
+            2,
+            2,
+            "FD"
+        );
+
+        pdf.setFillColor(
+            C.accent[0],
+            C.accent[1],
+            C.accent[2]
+        );
+
+        pdf.roundedRect(
+            x,
+            top,
+            3,
+            22,
+            1.5,
+            1.5,
+            "F"
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        pdf.setFontSize(7);
+
+        pdf.setTextColor(
+            C.muted[0],
+            C.muted[1],
+            C.muted[2]
+        );
+
+        pdf.text(
+            title.toUpperCase(),
+            x + 7,
+            top + 7
+        );
+
+        pdf.setFontSize(12);
+
+        pdf.setTextColor(
+            C.text[0],
+            C.text[1],
+            C.text[2]
+        );
+
+        const lines = pdf.splitTextToSize(
+            String(value),
+            width - 12
+        ).slice(0, 2);
+
+        pdf.text(
+            lines,
+            x + 7,
+            top + 15,
+            {
+                lineHeightFactor: 1
+            }
+        );
+    }
+
+    /*
+     * Intestazione principale.
+     */
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(20);
+
+    pdf.setTextColor(
+        C.primary[0],
+        C.primary[1],
+        C.primary[2]
+    );
+
+    pdf.text(
+        "Report VPU da Emettere",
+        M,
+        y + 5
+    );
+
+    const stamp = new Date().toLocaleString(
+        "it-IT",
+        {
+            day: "2-digit",
+            month: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+        }
+    );
+
+    pdf.setFont(
+        "helvetica",
+        "normal"
+    );
+
+    pdf.setFontSize(8);
+
+    pdf.setTextColor(
+        C.muted[0],
+        C.muted[1],
+        C.muted[2]
+    );
+
+    pdf.text(
+        "Esportato il " + stamp,
+        W - M,
+        y + 5,
+        {
+            align: "right"
+        }
+    );
+
+    pdf.setDrawColor(
+        C.accent[0],
+        C.accent[1],
+        C.accent[2]
+    );
+
+    pdf.setLineWidth(0.7);
+
+    pdf.line(
+        M,
+        y + 9,
+        W - M,
+        y + 9
+    );
+
+    y += 18;
+
+    /*
+     * KPI riepilogativi.
+     */
+    const gap = 5;
+    const cardWidth = (
+        CW - (gap * 3)
+    ) / 4;
+
+    drawKpi(
+        M,
+        y,
+        cardWidth,
+        "VPU da emettere",
+        report.length
+    );
+
+    drawKpi(
+        M + cardWidth + gap,
+        y,
+        cardWidth,
+        "Costo totale",
+        formatEuro(costoTotale) + " EUR"
+    );
+
+    drawKpi(
+        M + (cardWidth + gap) * 2,
+        y,
+        cardWidth,
+        "Ordini presenti",
+        ordiniPresenti
+    );
+
+    drawKpi(
+        M + (cardWidth + gap) * 3,
+        y,
+        cardWidth,
+        "Giorni medi",
+        mediaGiorni
+    );
+
+    y += 30;
+
+    /*
+     * Riquadro informativo.
+     */
+    pdf.setFillColor(
+        C.orangeLight[0],
+        C.orangeLight[1],
+        C.orangeLight[2]
+    );
+
+    pdf.setDrawColor(
+        C.border[0],
+        C.border[1],
+        C.border[2]
+    );
+
+    pdf.roundedRect(
+        M,
+        y,
+        CW,
+        14,
+        2,
+        2,
+        "FD"
+    );
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(8);
+
+    pdf.setTextColor(
+        C.orange[0],
+        C.orange[1],
+        C.orange[2]
+    );
+
+    pdf.text(
+        "CRITERIO DEL REPORT",
+        M + 5,
+        y + 5.5
+    );
+
+    pdf.setFont(
+        "helvetica",
+        "normal"
+    );
+
+    pdf.setTextColor(
+        C.text[0],
+        C.text[1],
+        C.text[2]
+    );
+
+    pdf.text(
+        "Progetti conclusi da almeno un giorno con stato VPU uguale a NO.",
+        M + 5,
+        y + 10.5
+    );
+
+    y += 21;
+
+    /*
+     * Colonne della tabella.
+     */
+    const cols = [
+        {
+            k: "codice",
+            l: "Codice",
+            w: 27
+        },
+        {
+            k: "applicativo",
+            l: "Applicativo",
+            w: 35
+        },
+        {
+            k: "descrizione",
+            l: "Descrizione",
+            w: 76
+        },
+        {
+            k: "ordine",
+            l: "Rif. ordine",
+            w: 35
+        },
+        {
+            k: "inizio",
+            l: "Inizio",
+            w: 24
+        },
+        {
+            k: "fine",
+            l: "Fine",
+            w: 24
+        },
+        {
+            k: "costo",
+            l: "Costo",
+            w: 32
+        },
+        {
+            k: "giorni",
+            l: "GG",
+            w: 14
+        }
+    ];
+
+    /*
+     * Disegna l'intestazione della tabella.
+     */
+    function drawHeader() {
+
+        pdf.setFillColor(
+            C.primary[0],
+            C.primary[1],
+            C.primary[2]
+        );
+
+        pdf.roundedRect(
+            M,
+            y,
+            CW,
+            10,
+            1.5,
+            1.5,
+            "F"
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        pdf.setFontSize(8);
+
+        pdf.setTextColor(
+            C.white[0],
+            C.white[1],
+            C.white[2]
+        );
+
+        let x = M;
+
+        cols.forEach(col => {
+
+            if (
+                col.k === "costo" ||
+                col.k === "giorni"
+            ) {
+                pdf.text(
+                    col.l,
+                    x + col.w - 2,
+                    y + 6.3,
+                    {
+                        align: "right"
+                    }
+                );
+            } else {
+                pdf.text(
+                    col.l,
+                    x + 2,
+                    y + 6.3
+                );
+            }
+
+            x += col.w;
+        });
+
+        y += 10;
+    }
+
+    /*
+     * Nuova pagina con intestazione.
+     */
+    function nuovaPagina() {
+
+        pdf.addPage();
+        y = 13;
+
+        pdf.setFont(
+            "helvetica",
+            "bold"
+        );
+
+        pdf.setFontSize(11);
+
+        pdf.setTextColor(
+            C.primary[0],
+            C.primary[1],
+            C.primary[2]
+        );
+
+        pdf.text(
+            "Report VPU da Emettere",
+            M,
+            y
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "normal"
+        );
+
+        pdf.setFontSize(8);
+
+        pdf.setTextColor(
+            C.muted[0],
+            C.muted[1],
+            C.muted[2]
+        );
+
+        pdf.text(
+            "Progetti: " + report.length,
+            W - M,
+            y,
+            {
+                align: "right"
+            }
+        );
+
+        pdf.setDrawColor(
+            C.border[0],
+            C.border[1],
+            C.border[2]
+        );
+
+        pdf.line(
+            M,
+            y + 3,
+            W - M,
+            y + 3
+        );
+
+        y += 9;
+
+        drawHeader();
+    }
+
+    drawHeader();
+
+    /*
+     * Compilazione delle righe.
+     */
+    report.forEach((p, index) => {
+
+        const dataFine = new Date(p.fine);
+        dataFine.setHours(0, 0, 0, 0);
+
+        const giorni = Math.floor(
+            (oggi - dataFine) /
+            (1000 * 60 * 60 * 24)
+        );
+
+        const row = {
+            codice: p.codice || "",
+            applicativo: p.applicativo || "",
+            descrizione: p.descrizione || "",
+            ordine: p.rifOrdine || "",
+            inizio: formatDateIT(p.inizio),
+            fine: formatDateIT(p.fine),
+            costo: formatEuro(p.costo) + " EUR",
+            giorni: String(giorni)
+        };
+
+        const prepared = {};
+        let maxLines = 1;
+
+        cols.forEach(col => {
+
+            const lines = pdf.splitTextToSize(
+                String(row[col.k] || ""),
+                col.w - 4
+            );
+
+            prepared[col.k] = lines;
+
+            maxLines = Math.max(
+                maxLines,
+                lines.length
+            );
+        });
+
+        const rowHeight = Math.max(
+            10,
+            5 + (maxLines * 3.7)
+        );
+
+        if (y + rowHeight > BOTTOM) {
+            nuovaPagina();
+        }
+
+        if (index % 2 === 0) {
+            pdf.setFillColor(
+                249,
+                250,
+                251
+            );
+        } else {
+            pdf.setFillColor(
+                C.white[0],
+                C.white[1],
+                C.white[2]
+            );
+        }
+
+        pdf.rect(
+            M,
+            y,
+            CW,
+            rowHeight,
+            "F"
+        );
+
+        pdf.setDrawColor(
+            C.border[0],
+            C.border[1],
+            C.border[2]
+        );
+
+        pdf.line(
+            M,
+            y + rowHeight,
+            W - M,
+            y + rowHeight
+        );
+
+        let x = M;
+
+        cols.forEach(col => {
+
+            pdf.setFont(
+                "helvetica",
+                col.k === "codice"
+                    ? "bold"
+                    : "normal"
+            );
+
+            pdf.setFontSize(7.5);
+
+            pdf.setTextColor(
+                C.text[0],
+                C.text[1],
+                C.text[2]
+            );
+
+            if (
+                col.k === "costo" ||
+                col.k === "giorni"
+            ) {
+                pdf.text(
+                    prepared[col.k],
+                    x + col.w - 2,
+                    y + 5.5,
+                    {
+                        align: "right",
+                        lineHeightFactor: 1.05
+                    }
+                );
+            } else {
+                pdf.text(
+                    prepared[col.k],
+                    x + 2,
+                    y + 5.5,
+                    {
+                        lineHeightFactor: 1.05
+                    }
+                );
+            }
+
+            x += col.w;
+        });
+
+        y += rowHeight;
+    });
+
+    /*
+     * Riga dei totali.
+     */
+    if (y + 12 > BOTTOM) {
+        nuovaPagina();
+    }
+
+    pdf.setFillColor(
+        237,
+        242,
+        247
+    );
+
+    pdf.setDrawColor(
+        C.border[0],
+        C.border[1],
+        C.border[2]
+    );
+
+    pdf.rect(
+        M,
+        y,
+        CW,
+        11,
+        "FD"
+    );
+
+    pdf.setFont(
+        "helvetica",
+        "bold"
+    );
+
+    pdf.setFontSize(8.5);
+
+    pdf.setTextColor(
+        C.primary[0],
+        C.primary[1],
+        C.primary[2]
+    );
+
+    pdf.text(
+        "Totale progetti: " + report.length,
+        M + 3,
+        y + 7
+    );
+
+    pdf.text(
+        "Costo totale: " +
+        formatEuro(costoTotale) +
+        " EUR",
+        W - M - 3,
+        y + 7,
+        {
+            align: "right"
+        }
+    );
+
+    /*
+     * Footer e numerazione delle pagine.
+     */
+    const totalPages =
+        pdf.internal.getNumberOfPages();
+
+    for (
+        let page = 1;
+        page <= totalPages;
+        page++
+    ) {
+        pdf.setPage(page);
+
+        pdf.setDrawColor(
+            C.border[0],
+            C.border[1],
+            C.border[2]
+        );
+
+        pdf.setLineWidth(0.2);
+
+        pdf.line(
+            M,
+            H - 12,
+            W - M,
+            H - 12
+        );
+
+        pdf.setFont(
+            "helvetica",
+            "normal"
+        );
+
+        pdf.setFontSize(8);
+
+        pdf.setTextColor(
+            C.muted[0],
+            C.muted[1],
+            C.muted[2]
+        );
+
+        pdf.text(
+            "Gestione Progetti",
+            M,
+            H - 8
+        );
+
+        pdf.text(
+            "Pagina " +
+            page +
+            " / " +
+            totalPages,
+            W / 2,
+            H - 8,
+            {
+                align: "center"
+            }
+        );
+
+        pdf.text(
+            "VPU da emettere: " +
+            report.length,
+            W - M,
+            H - 8,
+            {
+                align: "right"
+            }
+        );
+    }
+
+    /*
+     * Nome del file PDF.
+     */
+    const now = new Date();
+
+    const fileDate = now
+        .toISOString()
+        .slice(0, 19)
+        .replace(/[:T]/g, "-");
+
+    pdf.save(
+        `Report_VPU_${fileDate}.pdf`
+    );
+}
+
+render();
+toggleSortButtonVisibility();
+</script>
+
+<div id="fteModal" style="
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background:rgba(0,0,0,0.6);
+    z-index:999999;
+    justify-content:center;
+    align-items:center;
+">
+
+    <div style="
+        background:white;
+        padding:20px;
+        border-radius:10px;
+        max-width:900px;
+        width:90%;
+        max-height:80vh;
+        overflow:auto;
+    ">
+
+        <div style="
+            display:flex;
+            justify-content:space-between;
+            align-items:center;
+            margin-bottom:15px;
+        ">
+
+            <h2>Analisi FTE</h2>
+
+            <button onclick="closeFTEReport()">✖</button>
+
+        </div>
+
+<table>
+
+    <tbody id="fteTableBody">
+    </tbody>
+
+</table>
+
+        <div id="fteDebugContainer"
+        style="
+        margin-top:20px;
+        display:none;
+       ">
+       </div>
+
+    </div>
+
+</div>
+
+</body>
+</html>

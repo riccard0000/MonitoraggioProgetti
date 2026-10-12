@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Verifica ambiente</title>
+<style>
+  :root {
+    --primary: #1e3a8a;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --border: #e5e7eb;
+    --bg: #f3f6fb;
+    --ok: #166534;     --ok-bg: #dcfce7;
+    --ko: #991b1b;     --ko-bg: #fee2e2;
+    --avviso: #92400e; --avviso-bg: #fef3c7;
+    --info: #1e40af;   --info-bg: #dbeafe;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px 48px; background: var(--bg); color: var(--text);
+         font: 15px/1.5 "Segoe UI", Tahoma, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; }
+  h1 { margin: 0 0 4px; color: var(--primary); font-size: 1.6rem; }
+  h2 { margin: 0 0 4px; font-size: 1.1rem; color: var(--primary); }
+  p.sotto, p.nota { margin: 0 0 12px; color: var(--muted); font-size: .9rem; }
+  section { background: #fff; border: 1px solid var(--border); border-radius: 10px;
+            padding: 16px 18px; margin-top: 16px; }
+  button { font: inherit; padding: 7px 14px; border: 0; border-radius: 6px; cursor: pointer;
+           background: var(--primary); color: #fff; margin: 0 6px 6px 0; }
+  button.secondario { background: #e5e7eb; color: var(--text); }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  input[type=text], input[type=number], select, textarea { font: inherit; padding: 6px 8px;
+           border: 1px solid #cbd5e1; border-radius: 6px; max-width: 100%; }
+  textarea { width: 100%; }
+  ul.esiti { list-style: none; margin: 8px 0 0; padding: 0; }
+  ul.esiti li { padding: 8px 10px; border-left: 4px solid var(--border); margin-bottom: 6px;
+                background: #f9fafb; border-radius: 0 6px 6px 0; }
+  ul.esiti .tag { display: inline-block; min-width: 86px; padding: 1px 8px; margin-right: 6px;
+                  border-radius: 10px; font-size: .75rem; font-weight: 700; text-align: center; }
+  ul.esiti .dett { color: var(--muted); font-size: .88rem; word-break: break-word; }
+  .st-ok     { border-left-color: var(--ok); }     .st-ok .tag     { background: var(--ok-bg);     color: var(--ok); }
+  .st-ko     { border-left-color: var(--ko); }     .st-ko .tag     { background: var(--ko-bg);     color: var(--ko); }
+  .st-avviso { border-left-color: var(--avviso); } .st-avviso .tag { background: var(--avviso-bg); color: var(--avviso); }
+  .st-info   { border-left-color: var(--info); }   .st-info .tag   { background: var(--info-bg);   color: var(--info); }
+  .riga { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+  .riga label { color: var(--muted); font-size: .9rem; }
+  .domanda { display: grid; grid-template-columns: 1fr minmax(180px, 280px); gap: 10px;
+             align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); }
+  #errori { display: none; margin-top: 16px; padding: 10px 14px; border-radius: 8px;
+            background: var(--ko-bg); color: var(--ko); white-space: pre-wrap; font-size: .85rem; }
+  #monitor-stato { margin: 8px 0; padding: 8px 10px; background: #f9fafb; border-radius: 6px; font-size: .9rem; }
+  #monitor-log { margin: 8px 0 0; padding-left: 20px; font-size: .88rem; color: var(--muted); }
+  #report { min-height: 260px; font: 12.5px/1.45 Consolas, monospace; }
+  @media (max-width: 640px) { .domanda { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Verifica ambiente</h1>
+  <p class="sotto">Fase 0 di Monitoraggio Progetti. Controlla cosa è possibile fare nel tuo ambiente di lavoro
+  (cartelle condivise, rete, Power Platform) prima di scegliere dove salvare i dati.
+  La pagina non invia nulla in rete: il report si genera in locale e lo copi tu.</p>
+
+  <div id="errori" role="alert"></div>
+
+  <section>
+    <h2>1. Ambiente del browser</h2>
+    <p class="nota">Rilevato in automatico. Non include percorsi né nomi dell'organizzazione.</p>
+    <ul class="esiti" id="ambiente-lista"></ul>
+  </section>
+
+  <section>
+    <h2>2. Raggiungibilità di rete</h2>
+    <p class="nota">Dice se la rete aziendale lascia passare le librerie su CDN e gli accessi Microsoft.
+    Non scarica né esegue nulla. Gli URL facoltativi non compaiono nel report, solo il risultato.</p>
+    <div class="riga">
+      <label for="url-dataverse">URL ambiente Dataverse (facoltativo)</label>
+      <input type="text" id="url-dataverse" size="42" placeholder="https://nome-org.crm4.dynamics.com/">
+    </div>
+    <div class="riga">
+      <label for="url-sharepoint">URL sito SharePoint (facoltativo)</label>
+      <input type="text" id="url-sharepoint" size="42" placeholder="https://nome-tenant.sharepoint.com/">
+    </div>
+    <button id="btn-rete" type="button">Prova la rete</button>
+    <ul class="esiti" id="rete-lista"></ul>
+  </section>
+
+  <section>
+    <h2>3. Cartella condivisa</h2>
+    <p class="nota">Scegli una <strong>sottocartella dedicata</strong> (il browser non permette Desktop, Documenti,
+    la radice del disco e simili). Sul PC di sviluppo usa <code>sandbox/CartellaCondivisa</code>; in azienda una
+    cartella di una libreria SharePoint sincronizzata, di OneDrive o di rete. La prova crea file con prefisso
+    <code>_verifica_</code> e li rimuove alla fine.</p>
+    <div class="riga">
+      <label for="num-file">File piccoli per la prova dei tempi</label>
+      <input type="number" id="num-file" min="1" max="50" value="10" style="width:5em">
+    </div>
+    <button id="btn-cartella" type="button">Scegli la cartella e verifica</button>
+    <span id="cartella-avanzamento" class="nota"></span>
+    <ul class="esiti" id="cartella-lista"></ul>
+    <h2 style="margin-top:14px">Permesso ricordato</h2>
+    <p class="nota">Dopo aver ricaricato la pagina il browser ricorda la cartella ma può richiedere di nuovo il
+    permesso: serve per capire quanti clic costerà aprire l'app ogni giorno.</p>
+    <ul class="esiti" id="persistenza-lista"></ul>
+    <button id="btn-riattiva" type="button" class="secondario" hidden>Riattiva la cartella ricordata</button>
+  </section>
+
+  <section>
+    <h2>4. Modifiche fatte da altri utenti</h2>
+    <p class="nota">Misura quanto tempo impiega una modifica di un collega ad arrivare qui e se OneDrive crea copie
+    di conflitto. <strong>Serve una seconda persona o un secondo PC</strong> che apra questa stessa pagina sulla
+    stessa cartella sincronizzata. Funziona dopo aver completato il punto 3.</p>
+    <button id="btn-crea-controllo" type="button" class="secondario" disabled>Crea il file di controllo</button>
+    <button id="btn-scrivi-controllo" type="button" class="secondario" disabled>Simula un salvataggio (rev + 1)</button>
+    <button id="btn-monitor" type="button" disabled>Avvia il monitoraggio</button>
+    <button id="btn-elimina-controllo" type="button" class="secondario" disabled>Elimina il file di controllo</button>
+    <div id="monitor-stato">Nessun file di controllo letto.</div>
+    <p class="nota">Come provare: avvia il monitoraggio qui; l'altra persona preme «Simula un salvataggio» dalla sua
+    pagina. Qui compare dopo quanti secondi la modifica è arrivata. Se premete insieme «Simula un salvataggio» e il
+    numero finale è inferiore al numero di clic, un salvataggio è stato perso (ultimo scrive vince).</p>
+    <ol id="monitor-log"></ol>
+  </section>
+
+  <section>
+    <h2>5. Questionario</h2>
+    <p class="nota">Cose che la pagina non può sapere. «Non so» è una risposta valida.</p>
+    <div id="questionario"></div>
+  </section>
+
+  <section>
+    <h2>6. Report</h2>
+    <p class="nota">Rivedilo prima di condividerlo: contiene browser, lingua e fuso orario, ma non percorsi, URL né
+    nomi dell'organizzazione.</p>
+    <label for="note">Note libere</label>
+    <textarea id="note" rows="3" placeholder="Qualsiasi cosa notata durante le prove"></textarea>
+    <div style="margin-top:10px">
+      <button id="btn-report" type="button">Genera il report</button>
+      <button id="btn-copia" type="button" class="secondario">Copia</button>
+      <button id="btn-scarica-md" type="button" class="secondario">Scarica .md</button>
+      <button id="btn-scarica-json" type="button" class="secondario">Scarica .json</button>
+    </div>
+    <textarea id="report" readonly spellcheck="false"></textarea>
+  </section>
+</main>
+
+<script src="verifica.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
