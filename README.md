@@ -1,37 +1,49 @@
 # Monitoraggio Progetti
 
 Strumento personale, condiviso con pochi colleghi, per seguire le evolutive software: progetti, ordini, attività, VPU e carico FTE.
-Non usa server né database: solo risorse Microsoft 365 (cartelle condivise, OneDrive, SharePoint, eventualmente Dataverse).
+Non usa server né database: i dati stanno in una cartella condivisa (libreria SharePoint sincronizzata con OneDrive) e l'app gira in Edge o Chrome.
 
-**Stato:** fase 0, verifica dell'ambiente. L'app attuale (un solo file HTML) resta in `Documenti di partenza/` come riferimento; la nuova versione non è ancora scritta.
+**Stato:** versione funzionante. Progetti con più ordini (VPU e offerta per ordine, costo come somma), attività, scadenze, analisi FTE, import/export CSV, report PDF, lavoro in più persone con controllo dei conflitti e backup.
+
+## Come si usa
+
+1. Apri `index.html` con **Edge o Chrome** (doppio clic: non serve nessun server).
+2. **Apri la cartella dei dati** e scegli la cartella condivisa, oppure **Prova con dati di esempio** per vedere l'app senza scrivere nulla.
+
+Installazione per i colleghi, uso quotidiano, backup e passaggio dalla vecchia app: [docs/guida-uso.md](docs/guida-uso.md).
 
 ## Struttura
 
-| Cartella | Contenuto | Stato |
-|---|---|---|
-| `Documenti di partenza/` | App attuale (`Progetti_78_fte.html`) e CSV di esempio. Solo riferimento. | esistente |
-| `docs/` | Modello dati, architettura, guida alla verifica | scritta |
-| `verifica/` | Pagina di verifica dell'ambiente (fase 0) | pronta |
-| `src/domain/` | Regole di business come funzioni pure (codice univoco, costi, VPU, FTE, import) | da fare |
-| `src/storage/` | Interfaccia di salvataggio e adapter (cartella condivisa, Dataverse) | da fare |
-| `src/ui/` | Pagine e componenti | da fare |
-| `src/reports/` | PDF e report, con un solo kit condiviso | da fare |
-| `vendor/` | Librerie JS in locale con versione fissata (Chart.js, jsPDF, SheetJS) | da fare |
-| `test/` | Test Node; `fixtures/` contiene i CSV reali usati come dati di prova | in uso |
-| `sandbox/CartellaCondivisa/` | Cartella che simula quella condivisa aziendale | vuota |
+| Cartella | Contenuto |
+|---|---|
+| `index.html` | L'applicazione |
+| `src/domain/` | Regole di business come funzioni pure: codice univoco, date, importi, modello, import/export CSV, ricerca, scadenze, VPU, FTE |
+| `src/storage/` | Salvataggio: regole di revisione, adapter in memoria e su cartella condivisa |
+| `src/reports/` | Report PDF, con un solo kit condiviso |
+| `src/ui/` | Schermate, stile e dati di esempio |
+| `vendor/` | Chart.js, jsPDF e autotable in locale, con versione fissata (nessun CDN) |
+| `docs/` | Guida all'uso, modello dati, architettura, verifica dell'ambiente |
+| `test/` | Test Node; `fixtures/` contiene i CSV reali usati come dati di prova |
+| `e2e/` | Test end-to-end nel browser |
+| `verifica/` | Pagina che controlla cosa permette l'ambiente di lavoro (cartelle, rete) |
+| `sandbox/CartellaCondivisa/` | Cartella che simula quella condivisa aziendale, per provare a mano |
+| `Documenti di partenza/` | App precedente (un solo file HTML) e CSV di esempio. Solo riferimento. |
 
 Il file `progetti_12-10-2026_09-41.csv` nella radice è l'originale; la copia usata dai test è in `test/fixtures/legacy-conflitto-codice.csv`.
 
 ## Comandi
 
 ```
-npm test          # test automatici (Node 18+, nessuna dipendenza da installare)
+npm test          # test del dominio e del salvataggio (Node 18+, nessuna dipendenza da installare)
+npm run e2e       # test dell'app nel browser (Node 22+, Edge o Chrome installato)
+npm run e2e -- cartella   # un solo scenario: smoke, avvio, interazioni, esportazioni, cartella
 ```
 
-Verifica ambiente: aprire `verifica/index.html` con Edge. Istruzioni in [docs/verifica-ambiente.md](docs/verifica-ambiente.md).
+Prove a mano senza cartella condivisa: `index.html?demo` apre i dati di esempio; per la cartella sandbox usa «Apri la cartella dei dati» e scegli `sandbox/CartellaCondivisa`.
 
 ## Documentazione
 
-- [docs/modello-dati.md](docs/modello-dati.md): entità, regole sul codice univoco, decisioni prese e questioni aperte
-- [docs/architettura.md](docs/architettura.md): strati, interfaccia di salvataggio, percorsi possibili per i dati
-- [docs/verifica-ambiente.md](docs/verifica-ambiente.md): come eseguire la fase 0 e leggere i risultati
+- [docs/guida-uso.md](docs/guida-uso.md): installazione, uso quotidiano, lavoro in più persone, backup, migrazione
+- [docs/modello-dati.md](docs/modello-dati.md): entità, regole sul codice univoco, formati CSV, decisioni e questioni aperte
+- [docs/architettura.md](docs/architettura.md): decisione sul percorso dati, strati, interfaccia di salvataggio, rischi accettati, test
+- [docs/verifica-ambiente.md](docs/verifica-ambiente.md): la pagina di verifica dell'ambiente e i suoi risultati

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitoraggio Progetti</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%93%8A%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="src/ui/stile.css">
+</head>
+<body>
+<noscript>Questa applicazione richiede JavaScript.</noscript>
+<div id="radice"></div>
+
+<!-- Librerie (vendor/): niente CDN, funziona anche offline -->
+<script src="vendor/chart.js/chart.umd.min.js"></script>
+<script src="vendor/jspdf/jspdf.umd.min.js"></script>
+<script src="vendor/jspdf-autotable/jspdf.plugin.autotable.min.js"></script>
+
+<!-- Dominio: regole di business, senza DOM né file -->
+<script src="src/domain/codice.js"></script>
+<script src="src/domain/date.js"></script>
+<script src="src/domain/importi.js"></script>
+<script src="src/domain/csv.js"></script>
+<script src="src/domain/modello.js"></script>
+<script src="src/domain/importCsv.js"></script>
+<script src="src/domain/esportaCsv.js"></script>
+<script src="src/domain/elenco.js"></script>
+<script src="src/domain/scadenze.js"></script>
+<script src="src/domain/vpu.js"></script>
+<script src="src/domain/fte.js"></script>
+
+<!-- Salvataggio -->
+<script src="src/storage/errori.js"></script>
+<script src="src/storage/regole.js"></script>
+<script src="src/storage/memoria.js"></script>
+<script src="src/storage/cartella.js"></script>
+
+<!-- Report PDF -->
+<script src="src/reports/pdfKit.js"></script>
+<script src="src/reports/report.js"></script>
+
+<!-- Interfaccia (app.js per ultimo: avvia l'applicazione) -->
+<script src="src/ui/dom.js"></script>
+<script src="src/ui/demo.js"></script>
+<script src="src/ui/riepilogo.js"></script>
+<script src="src/ui/dettaglio.js"></script>
+<script src="src/ui/modulo.js"></script>
+<script src="src/ui/importazione.js"></script>
+<script src="src/ui/viste.js"></script>
+<script src="src/ui/impostazioni.js"></script>
+<script src="src/ui/app.js"></script>
+</body>
+</html>

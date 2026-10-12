@@ -2,70 +2,113 @@
 
 ## Vincoli
 
-- Nessun server e nessun database: solo risorse Microsoft 365 (cartelle condivise, OneDrive, SharePoint) e, con licenza, Power Apps e Dataverse.
-- L'app è personale, usata da pochi colleghi che **scrivono e consultano**. Non è un'applicazione aziendale distribuita.
+- Nessun server e nessun database: solo risorse Microsoft 365.
+- L'app è personale, usata da pochi colleghi (3-5) che **scrivono e consultano**. Non è un'applicazione aziendale distribuita.
 - Il PC di sviluppo non vede le risorse aziendali: tutto ciò che serve deve essere emulabile in locale.
 - Le pagine girano anche aperte da `file://`, dove i moduli ES (`import`/`export`) non si caricano. Quindi script classici, senza build.
+
+## Decisione (12/10/2026)
+
+I dati stanno in una **cartella condivisa** (una libreria SharePoint sincronizzata con OneDrive). L'app è una pagina HTML aperta da Edge o Chrome, che legge e scrive la cartella con la File System Access API.
+
+**Esclusi:** Dataverse, Power Apps (anche le «code apps»), liste SharePoint, Graph.
+
+- Non si può registrare un'app in Microsoft Entra, quindi una nostra pagina non può autenticarsi su quei servizi.
+- Power Apps non si emula sul PC di sviluppo e obbligherebbe a riscrivere l'interfaccia.
+- La cartella è l'unico percorso che si sviluppa e si prova interamente offline.
+
+**Browser supportati: Edge e Chrome.** Firefox e Safari non hanno la File System Access API: la pagina lo dice chiaramente e resta disponibile solo la modalità con dati di esempio.
+
+**Ipotesi dell'utente, non verificata:** i file della libreria SharePoint sono raggiungibili dal browser e si sincronizzano. Il progetto non dipende dal fatto che SharePoint mostri gli HTML: ogni collega apre la pagina dalla propria copia sincronizzata (`file://`).
 
 ## Strati
 
 ```
-  src/ui        pagine e componenti       (usa domain e storage, mai i file direttamente)
-  src/reports   PDF e report              (un solo kit condiviso)
-  src/domain    regole di business        (funzioni pure, nessun DOM, nessun file)
+  src/ui        pagine e componenti       (usa domain, storage e reports; mai i file direttamente)
+  src/reports   PDF                       (un solo kit condiviso)
   src/storage   interfaccia + adapter     (dove e come si salvano i dati)
+  src/domain    regole di business        (funzioni pure, nessun DOM, nessun file)
 ```
 
-Regola di dipendenza: `ui` e `reports` conoscono `domain` e l'interfaccia di `storage`; `domain` non conosce nessuno. Così le regole (codice univoco, costo come somma degli ordini, VPU per ordine, FTE, import con conflitti) si provano in Node con `npm test`, senza browser.
+Regola di dipendenza: `ui` conosce tutti gli altri; `reports` e `storage` conoscono `domain`; `domain` non conosce nessuno. Così le regole si provano in Node con `npm test`, senza browser.
+
+### `src/domain`
+
+| File | Contenuto |
+|---|---|
+| `codice.js` | Normalizzazione e confronto del codice progetto |
+| `date.js` | Lettura e calcoli sulle date, in UTC |
+| `importi.js` | Lettura del testo in euro e formato `10.000,00` |
+| `csv.js` | Lettore CSV |
+| `modello.js` | Progetto, ordini, attività; fasi e stati; validazione; costo; duplicati; configurazione |
+| `importCsv.js` | Import del CSV (formato piatto ed esteso) con conflitti, anteprima e applicazione per codice |
+| `esportaCsv.js` | Export nel formato esteso |
+| `elenco.js` | Ricerca, filtro per fase, ordinamento, sintesi e totali |
+| `scadenze.js` | Classificazione delle attività: scadute, in corso, da avviare |
+| `vpu.js` | VPU da emettere, per ordine; bozza dell'email |
+| `fte.js` | Carico FTE mensile e annuale |
+
+### `src/storage`
+
+| File | Contenuto |
+|---|---|
+| `errori.js` | `ConflittoDiVersione` e versione dello schema |
+| `regole.js` | Regole di revisione comuni a ogni adapter (nuovo, modifica, cambio codice, eliminazione) |
+| `memoria.js` | Adapter in memoria: test e modalità «dati di esempio» |
+| `cartella.js` | Adapter su cartella condivisa (File System Access API) |
+
+### `src/reports` e `src/ui`
+
+| File | Contenuto |
+|---|---|
+| `reports/pdfKit.js` | Intestazione, indicatori, blocchi di testo, tabelle e piè di pagina condivisi |
+| `reports/report.js` | Scheda progetto, riepilogo, scadenze, VPU da emettere |
+| `ui/dom.js` | Costruzione sicura della pagina (`h`), dialoghi, notifiche |
+| `ui/riepilogo.js`, `dettaglio.js`, `modulo.js`, `importazione.js`, `viste.js`, `impostazioni.js` | Le schermate |
+| `ui/app.js` | Avvio, apertura della cartella, schede, avvisi, copie di conflitto |
+| `ui/demo.js` | Dati di esempio con date relative a oggi |
 
 ## Interfaccia di salvataggio
 
 Operazioni per progetto, con controllo di versione ottimistico (`rev`):
 
 ```
-elencaProgetti()                    -> [{ codice, rev, ... }]
-leggiProgetto(codice)               -> progetto con ordini e attività, più rev
-salvaProgetto(progetto, revAtteso)  -> nuova rev, oppure errore ConflittoDiVersione
-eliminaProgetto(codice, revAtteso)
+elenca()                              -> { progetti: [{ progetto, rev }], copieConflitto, errori }
+salva(progetto, { revAtteso, codicePrecedente })
+                                      -> { progetto, rev }  oppure ConflittoDiVersione
+elimina(codice, revAtteso)
 leggiConfigurazione() / salvaConfigurazione(cfg)
+risolviCopia(file, 'elimina' | 'usa')   (solo adapter su cartella)
 ```
 
-Il salvataggio fallisce se nel frattempo un collega ha modificato lo stesso progetto: l'utente decide, nessuno viene sovrascritto in silenzio.
+Il salvataggio fallisce se nel frattempo un collega ha modificato lo stesso progetto: l'utente decide, nessuno viene sovrascritto in silenzio. Le regole stanno in `regole.js` e valgono per ogni adapter; `test/storage/contratto.js` le verifica su memoria e cartella con le stesse prove.
 
-### Adapter
+**Layout nella cartella.** Un file per progetto: `progetti/<CODICE>.json` con ordini e attività annidati, più `config.json` e `backup/`. Il nome del file deriva dal codice, quindi il file system garantisce l'unicità: Windows e OneDrive non distinguono maiuscole e minuscole, il che coincide con la regola sul codice. I caratteri non ammessi nei nomi file vengono codificati. `rev` è un contatore dentro il file, confrontato prima di ogni scrittura. Ogni file ha `schemaVersion`, così una versione vecchia dell'app non rovina dati scritti da una nuova.
 
-| Adapter | Uso | Quando |
-|---|---|---|
-| In memoria | Test automatici | Subito |
-| Cartella condivisa (File System Access API) | Sviluppo su `sandbox/CartellaCondivisa`, produzione su cartella OneDrive/SharePoint sincronizzata o di rete | Percorso A |
-| Dataverse (Web API) | Produzione con tabelle Progetto, Ordine, Attività | Percorso B |
+**Backup.** Prima di sostituire un progetto si conserva la versione di inizio giornata in `backup/<aaaa-mm-gg>/` (una per progetto al giorno). Un progetto eliminato lascia `<CODICE>.eliminato.json`, una copia di conflitto scartata `<file>.copia.json`.
 
-**Cartella condivisa.** Un file per progetto: `progetti/<CODICE>.json` con ordini e attività annidati, più `config.json` e `backup/`. Il nome del file deriva dal codice, quindi il file system garantisce l'unicità: Windows e OneDrive non distinguono maiuscole e minuscole, il che coincide con la regola sul codice. I caratteri non ammessi nei nomi file vengono codificati. `rev` è un contatore dentro il file, confrontato prima di ogni scrittura. Ogni file ha `schemaVersion`, così una versione vecchia dell'app non rovina dati scritti da una nuova.
+## Rischi accettati
 
-**Dataverse.** Tre tabelle collegate; il codice è una *chiave alternativa* sulla tabella Progetto, quindi l'unicità è garantita dal database. La versione di riga (ETag) fa da `rev`.
+- **Copie di conflitto di OneDrive.** Il controllo di `rev` non basta se due persone salvano lo stesso progetto entro il tempo di sincronizzazione: OneDrive crea una copia con il nome del PC accanto al file. L'adapter le rileva (nome del file diverso da quello atteso per il codice) e l'app le mostra con un confronto, offrendo di tenere l'originale o di usare la copia. Un file per progetto limita il problema a chi tocca lo stesso progetto.
+- **Primo caricamento lento.** Con Files On-Demand la prima lettura di molti file piccoli può essere lenta. L'adapter legge fino a 8 file alla volta. Da misurare sulla cartella vera con la pagina in `verifica/`.
+- **Permesso sulla cartella.** Dopo la chiusura del browser Edge e Chrome possono chiedere di nuovo il permesso: l'app propone «Riapri» e un clic di conferma.
+- **Ripristino dai backup a mano.** Il ripristino non ha ancora una funzione nell'app: vedi [guida-uso.md](guida-uso.md).
 
-## Percorsi possibili
+## Test
 
-Si sceglie dopo la fase 0 ([verifica-ambiente.md](verifica-ambiente.md)).
-
-| Risultato della verifica | Percorso |
+| Comando | Cosa prova |
 |---|---|
-| File System Access funziona su una cartella sincronizzata, tempi accettabili, nessuna copia di conflitto | **A.** Cartella condivisa, un file per progetto |
-| Si possono creare tabelle Dataverse e c'è modo di ospitare l'app con accesso autenticato (registrazione in Entra o «code apps» di Power Apps) | **B.** Dataverse tramite adapter |
-| Né cartelle né Dataverse utilizzabili | **C.** Export/import manuale su SharePoint (CSV/Excel a tre tabelle) |
+| `npm test` | Dominio, salvataggio (memoria e cartella simulata) e pagina di verifica, in Node, senza browser |
+| `npm run e2e` | L'app vera in Edge o Chrome senza interfaccia grafica: schermate, moduli, import, PDF, CSV e, con la cartella privata del browser (OPFS, stessa API della cartella condivisa), salvataggio, conflitti e backup. Screenshot e PDF in `e2e/risultati/`. Richiede Edge o Chrome (`BROWSER_PATH` per indicare il percorso) |
 
-Note sulle incognite, entrambe da verificare nell'ambiente reale:
-
-- Le **code apps** di Power Apps permettono di pubblicare un'app web (React/Vite) collegata a Dataverse, ma non ho trovato una conferma ufficiale dello stato di rilascio.
-- Fonti non ufficiali indicano che **SharePoint Online scarica i file HTML invece di mostrarli**. Se è così, l'app si apre da cartella sincronizzata e non direttamente dal sito.
-
-I percorsi A e B possono convivere: il dominio e l'interfaccia di salvataggio non cambiano, cambia solo l'adapter.
+Non coperto dai test: il selettore nativo di cartelle (serve una persona) e la sincronizzazione reale di OneDrive tra due PC.
 
 ## Convenzioni
 
-- Script classici in più file, ciascuno in una funzione immediata che si registra su un oggetto globale (`window.MP`) e, se c'è `module`, anche su `module.exports` per i test Node. Esempio: `verifica/verifica.js`.
-- Librerie in `vendor/`, con versione fissata, mai da CDN: la rete aziendale potrebbe bloccarle.
-- Tutto ciò che viene da dati (descrizioni, note, CSV importati) si inserisce nella pagina con `textContent` o con escape, mai in `innerHTML` grezzo.
-- Date `aaaa-mm-gg` nel dato, `gg/mm/aaaa` a schermo; importi come numeri.
-- Ogni fase di una lista (fasi, stati) è definita in **un solo punto** del dominio.
-- Prima il dominio con i test, poi l'interfaccia. I CSV in `test/fixtures/` sono i dati di prova.
+- Script classici in più file, ciascuno in una funzione immediata che si registra su `window.MP` e, se c'è `module`, anche su `module.exports` per i test Node. Le dipendenze tra moduli si risolvono con `require` in Node e con `window.MP` nel browser. L'ordine di caricamento è quello di `index.html`.
+- Librerie in `vendor/`, con versione fissata, mai da CDN: la rete aziendale potrebbe bloccarle (vedi `vendor/LEGGIMI.md`).
+- Tutto ciò che viene da dati (descrizioni, note, CSV importati) entra nella pagina come testo con `h()`, mai come HTML. Il collegamento al sito di progetto è creato solo per indirizzi http/https.
+- Date `aaaa-mm-gg` nel dato, `gg/mm/aaaa` a schermo; importi come numeri; `oggi` passato dal chiamante alle funzioni di dominio, mai letto dall'orologio dentro.
+- Ogni elenco di valori (fasi, stati) è definito in **un solo punto**: `modello.js`.
+- Prima il dominio con i test, poi l'interfaccia.
+- Parametri di sviluppo nell'indirizzo: `index.html?demo` apre i dati di esempio; `index.html?opfs` usa una cartella privata del browser (richiede `http://`, non `file://`).

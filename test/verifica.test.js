@@ -6,71 +6,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const V = require('../verifica/verifica.js');
 
-let orologio = 1000;
-
-function errore(name) {
-  return Object.assign(new Error(name), { name });
-}
-
-function creaFile() {
-  let testo = '';
-  let modificato = ++orologio;
-  return {
-    kind: 'file',
-    async createWritable() {
-      let buffer = '';
-      return {
-        async write(t) { buffer += t; },
-        async close() { testo = buffer; modificato = ++orologio; }
-      };
-    },
-    async getFile() {
-      return { async text() { return testo; }, lastModified: modificato, size: testo.length };
-    }
-  };
-}
-
-// maiuscoleDistinte=false imita Windows/OneDrive (nomi file senza distinzione).
-function creaDir({ maiuscoleDistinte = false, falliSottocartella = false } = {}) {
-  const chiave = (n) => (maiuscoleDistinte ? n : n.toLowerCase());
-  const voci = new Map();
-  return {
-    kind: 'directory',
-    voci,
-    async queryPermission() { return 'granted'; },
-    async getFileHandle(nome, opz = {}) {
-      let v = voci.get(chiave(nome));
-      if (!v) {
-        if (!opz.create) throw errore('NotFoundError');
-        v = { nome, handle: creaFile() };
-        voci.set(chiave(nome), v);
-      }
-      if (v.handle.kind !== 'file') throw errore('TypeMismatchError');
-      return v.handle;
-    },
-    async getDirectoryHandle(nome, opz = {}) {
-      if (falliSottocartella) throw errore('NotAllowedError');
-      let v = voci.get(chiave(nome));
-      if (!v) {
-        if (!opz.create) throw errore('NotFoundError');
-        v = { nome, handle: creaDir({ maiuscoleDistinte }) };
-        voci.set(chiave(nome), v);
-      }
-      return v.handle;
-    },
-    async removeEntry(nome, opz = {}) {
-      const v = voci.get(chiave(nome));
-      if (!v) throw errore('NotFoundError');
-      if (v.handle.kind === 'directory' && v.handle.voci.size && !opz.recursive) {
-        throw errore('InvalidModificationError');
-      }
-      voci.delete(chiave(nome));
-    },
-    async *entries() {
-      for (const v of voci.values()) yield [v.nome, v.handle];
-    }
-  };
-}
+const { creaDir } = require('./helpers/fsFinto.js');
 
 const perId = (risultati, id) => risultati.find((r) => r.id === id);
 

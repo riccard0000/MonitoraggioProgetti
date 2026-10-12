@@ -1,0 +1,8 @@
+# Risultati dei test end-to-end (screenshot, PDF)
+e2e/risultati/
+
+# La cartella che simula quella condivisa: il contenuto è solo di prova
+sandbox/CartellaCondivisa/*
+!sandbox/CartellaCondivisa/.gitkeep
+
+node_modules/

@@ -2,6 +2,8 @@
 
 Serve a decidere dove salvare i dati ([architettura.md](architettura.md), «Percorsi possibili») prima di scrivere l'app. La pagina è in `verifica/` (tre file: `index.html`, `verifica.js`, `app.js`), non ha dipendenze e non invia nulla in rete.
 
+**Esito (12/10/2026):** il percorso è stato scelto (cartella condivisa, Edge e Chrome; vedi [architettura.md](architettura.md)), quindi la verifica non blocca più nulla. Resta utile per misurare, sulla cartella sincronizzata vera, i tempi e le copie di conflitto con due persone (sezione 4): conviene farlo quando c'è il primo adapter.
+
 ## Cosa controlla
 
 | Sezione | Che cosa | Come |

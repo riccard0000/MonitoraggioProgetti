@@ -59,27 +59,26 @@ Progetto (Codice univoco) ──< Ordine      0..N, di norma 1
 
 Il vecchio `parseEuro` trasformava `2000.9` in `20009` e `10000.25` in `1000025`. Regola per il nuovo codice: se compaiono sia `.` sia `,`, l'ultimo è il decimale; solo `,` è decimale; solo `.` con esattamente tre cifre dopo è ambiguo e va confermato dall'utente; altrimenti `.` è decimale.
 
-## Import dal CSV attuale (formato piatto)
+## Import da CSV
 
-Una riga per attività, con le 14 colonne del progetto ripetute. Regole:
+Due formati, riconosciuti dalle intestazioni:
+
+- **Piatto** (quello dell'app precedente): una riga per attività, con le colonne del progetto ripetute, compresi Riferimento ordine, Costo, Offerta e VPU. Può descrivere **un solo ordine** per progetto.
+- **Esteso** (quello che scrive «Esporta CSV»): una riga per ordine o per attività, con le colonne `Ordine Riferimento`, `Ordine Importo`, `Ordine Offerta`, `Ordine VPU`. Può descrivere più ordini per progetto: l'export si reimporta senza differenze.
+
+Regole comuni:
 
 1. Si raggruppa per codice normalizzato.
-2. Le colonne del progetto si prendono dalla prima riga; se altre righe dello stesso codice hanno un valore diverso, **è un conflitto** da mostrare all'utente, non da risolvere in silenzio.
-3. Riferimento ordine, Costo, Offerta e VPU della riga producono **un** ordine (importo = Costo). Un secondo riferimento ordine su righe dello stesso codice non crea un secondo ordine da solo: è un conflitto, perché il costo è ripetuto e non si può attribuire.
+2. Ogni colonna del progetto vale il primo valore non vuoto del gruppo; se altre righe dello stesso codice hanno un valore diverso e non vuoto, **è un conflitto** da mostrare all'utente, non da risolvere in silenzio. Un valore vuoto non è un conflitto.
+3. Nel formato piatto Riferimento ordine, Costo, Offerta e VPU producono **un** ordine (importo = Costo). Un secondo riferimento ordine su righe dello stesso codice non crea un secondo ordine da solo: è un conflitto, perché il costo è ripetuto e non si può attribuire. Nel formato esteso gli ordini sono quelli indicati nelle colonne `Ordine ...`; lo stesso ordine ripetuto con importi diversi è un conflitto.
 4. L'import aggiorna per codice (upsert) e mostra un'anteprima (nuovi, aggiornati, conflitti) prima di scrivere. Non sostituisce più tutto l'archivio.
 5. Date accettate in `gg/mm/aaaa` e `aaaa-mm-gg`; importi con le regole sopra.
 
-Caso di prova: `test/fixtures/legacy-conflitto-codice.csv`. EVO-26-003 ha 3 righe (3 attività) con riferimento ordine «Prova 3», «Prova 4», «Prova 5»: va segnalato come conflitto sul riferimento ordine.
+Implementato in `src/domain/importCsv.js` (`importa`, `anteprima`, `applica`); l'esito riporta `conflitti`, `avvisi` ed `errori` separati. Caso di prova: `test/fixtures/legacy-conflitto-codice.csv`. EVO-26-003 ha 3 righe (3 attività) con riferimento ordine «Prova 3», «Prova 4», «Prova 5»: viene segnalato come conflitto sul riferimento ordine.
 
-## Formato di scambio
+## Export CSV
 
-Tre tabelle collegate dal codice, come nei due fogli già esportati per SharePoint più gli ordini:
-
-- **Progetti**: codice, applicativo, projectManager, fase, inizio, fine, sito, descrizione, note, promemoria
-- **Ordini**: codice, riferimento, importo, offerta, vpu
-- **Attività**: codice, descrizione, inizio, fine, stato, note
-
-Il CSV piatto resta solo come formato di import dei dati esistenti.
+`src/domain/esportaCsv.js` scrive il formato esteso: per ogni progetto `max(1, ordini, attività)` righe, la riga *i* con l'ordine *i* e l'attività *i*. Date `gg/mm/aaaa`, importi `10.000,00`, separatore `;`, UTF-8 con BOM (si apre bene in Excel in italiano). Colonne: Codice, Applicativo, Project Manager, Fase, Periodo Inizio, Periodo Fine, Sito Progetto, Descrizione, Note, Promemoria, Ordine Riferimento, Ordine Importo, Ordine Offerta, Ordine VPU, Attività Descrizione, Attività Inizio, Attività Fine, Attività Stato, Attività Note.
 
 ## Decisioni (12/10/2026)
 
@@ -95,6 +94,6 @@ Il CSV piatto resta solo come formato di import dei dati esistenti.
 
 - **Promemoria**: per progetto (ipotesi di lavoro) o per ordine?
 - **Project manager**: stringa libera o elenco di persone? Serve se l'FTE va ripartito per PM.
-- **Criterio «VPU da emettere»**: oggi è «fine progetto passata e VPU = NO» senza guardare la fase. Va definito per ordine.
+- **Criterio «VPU da emettere»**: è «fine progetto passata da almeno un giorno e ordine con VPU = NO», senza guardare la fase (come l'app precedente, applicato a ogni ordine). Da rivedere se serve limitarlo alla fase Esercizio.
 - **Significato di `26`** in `EVO-26-xxx`: non coincide con l'anno delle date (EVO-26-002 finisce nel 2024). Non usato dall'app.
 - **Valore reale dell'FTE** per progetto.
