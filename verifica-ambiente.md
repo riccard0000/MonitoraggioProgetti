@@ -1,0 +1,54 @@
+# Verifica ambiente - report
+Generato il: 2026-10-12T09:02:58.800Z
+Versione pagina di verifica: 1.0
+
+## Ambiente
+- [INFO] Browser: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/155.0.0.0 Safari/537.36 Edg/155.0.0.0
+- [INFO] Pagina aperta da: file:// (percorso locale)
+- [OK] Contesto sicuro: sì
+- [OK] Accesso a cartelle (showDirectoryPicker): disponibile
+- [OK] Accesso a file singoli: disponibile
+- [OK] IndexedDB: disponibile
+- [OK] localStorage: disponibile
+- [INFO] Lingua e fuso orario: it-IT, Europe/Rome
+- [OK] Appunti (clipboard): disponibile
+- [OK] Connessione di rete: online
+
+## Rete
+- [OK] cdn.jsdelivr.net (librerie JS): raggiungibile (19 ms)
+- [OK] cdnjs.cloudflare.com (librerie JS): raggiungibile (40 ms)
+- [OK] login.microsoftonline.com (accesso Microsoft): raggiungibile (472 ms)
+- [OK] graph.microsoft.com (Microsoft Graph): raggiungibile (109 ms)
+- [OK] Ambiente Dataverse indicato: raggiungibile (876 ms)
+- [OK] Sito SharePoint indicato: raggiungibile (1019 ms)
+
+## Cartella condivisa
+- [OK] Permesso sulla cartella: lettura/scrittura: granted (2 ms)
+- [OK] Creazione e scrittura di un file: 2059 byte scritti (158 ms)
+- [OK] Rilettura del file: contenuto identico, ultima modifica 2026-10-12T08:59:41.447Z (2 ms)
+- [OK] Sovrascrittura (come un salvataggio): contenuto aggiornato (94 ms)
+- [OK] Elenco dei file della cartella: 3 file e 0 sottocartelle (inclusi i file di prova) (5 ms)
+- [OK] Sottocartella (per backup e archivio): creata, scritta e riletta (87 ms)
+- [INFO] Nomi file: maiuscole e minuscole: NON le distingue (atteso su Windows/OneDrive): il nome del file può garantire l'unicità del codice (105 ms)
+- [OK] Tempi su 10 file piccoli: scrittura 99 ms/file, lettura 3 ms/file: caricare 300 progetti richiederebbe circa 1 s (stima indicativa; la prima lettura di file OneDrive non ancora scaricati può essere più lenta) (1024 ms)
+- [OK] Rimozione dei file di prova: 13 elementi rimossi, nessun residuo (94 ms)
+- [INFO] Permesso sulla cartella ricordata: nessuna cartella ricordata: scegli una cartella al punto 3, poi ricarica la pagina
+
+## Modifiche fatte da altri utenti (sincronizzazione)
+- (nessuna modifica rilevata o test non eseguito)
+
+## Questionario
+- Un file .html caricato in una libreria SharePoint, aperto dal browser...: (non risposto)
+- Browser usato dai colleghi: Misto o altro
+- Quante persone scriveranno dati (te compreso): 3-5
+- Tipo di Dataverse disponibile: Dataverse in un ambiente completo
+- Posso creare tabelle Dataverse in un ambiente di sviluppo/sandbox: Sì
+- Posso dare ai colleghi accesso ai dati/app (ruoli di sicurezza): Sì
+- Posso registrare un'app in Microsoft Entra ID (o ottenerlo dall'IT in tempi ragionevoli): No
+- Le "code apps" di Power Apps sono abilitate nel mio ambiente: Non so
+- Power Automate (flussi cloud) disponibile: Sì
+- Posso creare liste SharePoint in un sito condiviso con i colleghi: Sì
+- Dove metteresti i dati condivisi se usassimo una cartella: Libreria SharePoint sincronizzata con OneDrive
+
+## Note
+(nessuna)
